@@ -987,9 +987,8 @@ struct SaveBlock1
     /*0x1C*/ struct WarpData lastHealLocation; // used by white-out and teleport
     /*0x24*/ struct WarpData escapeWarp; // used by Dig and Escape Rope
     /*0x2C*/ u16 savedMusic;
-    /*0x2E*/ u8 weather;
-    /*0x2F*/ u8 weatherCycleStage;
-    /*0x30*/ u8 flashLevel;
+    /*0x2E*/ u8 flashLevel;
+    /*0x2F*/ u8 fillerOldWeather[2];
     /*0x31*/ //u8 padding1;
     /*0x32*/ u16 mapLayoutId;
     /*0x34*/ u16 mapView[0x100];
@@ -1008,7 +1007,10 @@ struct SaveBlock1
     /*0x848*/ struct Pokeblock pokeblocks[POKEBLOCKS_COUNT];
     /*0x988*/ u8 filler1[0x34]; // Previously Dex Flags, feel free to remove.
     /*0x9BC*/ u16 berryBlenderRecords[3];
-    /*0x9C2*/ u8 unused_9C2[6];
+    /*0x9C2*/ u8 weather;
+    /*0x9C3*/ u8 weatherIntensity;
+    /*0x9C4*/ u8 weatherCycleStage;
+    /*0x9C5*/ u8 unused_9C2[2];
     /*0x9C8*/ u16 trainerRematchStepCounter;
     /*0x9CA*/ u8 trainerRematches[MAX_REMATCH_ENTRIES];
     /*0xA2E*/ //u8 padding3[2];

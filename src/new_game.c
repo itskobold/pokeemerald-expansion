@@ -45,6 +45,7 @@
 #include "mystery_gift.h"
 #include "union_room_chat.h"
 #include "constants/items.h"
+#include "constants/weather.h"
 
 extern const u8 EventScript_ResetAllMapFlags[];
 
@@ -204,6 +205,7 @@ void NewGameInitData(void)
     WipeTrainerNameRecords();
     ResetTrainerHillResults();
     ResetContestLinkResults();
+    gSaveBlock1Ptr->weatherIntensity = WTHR_INTENSITY_MILD;
 }
 
 static void ResetMiniGamesRecords(void)

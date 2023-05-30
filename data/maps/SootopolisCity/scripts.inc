@@ -111,7 +111,8 @@ SootopolisCity_EventScript_SetNormalWeather::
 	return
 
 SootopolisCity_EventScript_SetDownpour::
-	setweather WEATHER_DOWNPOUR
+	setweather WEATHER_RAIN
+	setweatherintensity WTHR_INTENSITY_STRONG
 	return
 
 SootopolisCity_EventScript_CheckSetEnterCaveOfOriginObjPos::

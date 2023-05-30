@@ -4332,7 +4332,7 @@ u8 AbilityBattleEffects(u8 caseID, u8 battler, u16 ability, u8 special, u16 move
                 effect++;
             }
         #if B_THUNDERSTORM_TERRAIN == TRUE
-            else if (GetCurrentWeather() == WEATHER_RAIN_THUNDERSTORM && !(gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN))
+            else if (IsThunderstorm() && !(gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN))
             {
                 // overworld weather started rain, so just do electric terrain anim
                 gFieldStatuses = (STATUS_FIELD_ELECTRIC_TERRAIN | STATUS_FIELD_TERRAIN_PERMANENT);
@@ -4348,8 +4348,6 @@ u8 AbilityBattleEffects(u8 caseID, u8 battler, u16 ability, u8 special, u16 move
                 switch (GetCurrentWeather())
                 {
                 case WEATHER_RAIN:
-                case WEATHER_RAIN_THUNDERSTORM:
-                case WEATHER_DOWNPOUR:
                     if (!(gBattleWeather & B_WEATHER_RAIN))
                     {
                         gBattleWeather = (B_WEATHER_RAIN_TEMPORARY | B_WEATHER_RAIN_PERMANENT);

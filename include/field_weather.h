@@ -58,31 +58,35 @@ struct Weather
     u16 finishStep;
     u8 currWeather;
     u8 nextWeather;
+    u8 currIntensity;
+    u8 nextIntensity;
     u8 weatherGfxLoaded;
     bool8 weatherChangeComplete;
     u8 weatherPicSpritePalIndex;
     u8 contrastColorMapSpritePalIndex;
+    u8 nextAbnormalWeather;
     // Rain
+    u8 rainStep;
     u16 rainSpriteVisibleCounter;
     u8 curRainSpriteIndex;
     u8 targetRainSpriteCount;
     u8 rainSpriteCount;
     u8 rainSpriteVisibleDelay;
+    bool8 updatingRainSprites;
     u8 isDownpour;
-    u8 rainStrength;
+    u16 rainSEPlaying;
     u8 cloudSpritesCreated;
+    u16 thunderTimer;             // general-purpose timer for state transitions
+    u16 thunderSETimer;           // timer for thunder sound effect
+    bool8 thunderAllowEnd;
+    bool8 thunderLongBolt;        // true if this cycle will end in a long lightning bolt
+    u8 thunderShortBolts;         // the number of short bolts this cycle
+    bool8 thunderEnqueued;
     // Snow
     u16 snowflakeVisibleCounter;
     u16 snowflakeTimer;
     u8 snowflakeSpriteCount;
     u8 targetSnowflakeSpriteCount;
-    // Thunderstorm
-    u16 thunderTimer;        // general-purpose timer for state transitions
-    u16 thunderSETimer;      // timer for thunder sound effect
-    bool8 thunderAllowEnd;
-    bool8 thunderLongBolt;   // true if this cycle will end in a long lightning bolt
-    u8 thunderShortBolts;    // the number of short bolts this cycle
-    bool8 thunderEnqueued;
     // Horizontal fog
     u16 fogHScrollPosX;
     u16 fogHScrollCounter;
@@ -148,6 +152,8 @@ void StartWeather(void);
 void SetNextWeather(u8 weather);
 void SetCurrentAndNextWeather(u8 weather);
 void SetCurrentAndNextWeatherNoDelay(u8 weather);
+void SetNextWeatherIntensity(u8 intensity);
+void SetCurrentAndNextWeatherIntensity(u8 intensity);
 void ApplyWeatherColorMapIfIdle(s8 colorMapIndex);
 void ApplyWeatherColorMapIfIdle_Gradual(u8 colorMapIndex, u8 targetColorMapIndex, u8 colorMapStepDelay);
 void FadeScreen(u8 mode, s8 delay);
@@ -163,7 +169,9 @@ void Weather_SetBlendCoeffs(u8 eva, u8 evb);
 void Weather_SetTargetBlendCoeffs(u8 eva, u8 evb, int delay);
 bool8 Weather_UpdateBlend(void);
 u8 GetCurrentWeather(void);
-void SetRainStrengthFromSoundEffect(u16 soundEffect);
+bool8 IsThunderstorm(void);
+u16 GetRainSEFromIntensity(u8 intensity);
+void PlayRainSoundEffect(u16 se);
 void PlayRainStoppingSoundEffect(void);
 u8 IsWeatherChangeComplete(void);
 void SetWeatherScreenFadeOut(void);
@@ -181,6 +189,7 @@ void Sunny_Main(void);
 void Sunny_InitAll(void);
 bool8 Sunny_Finish(void);
 void Rain_InitVars(void);
+void Rain_Intensity(void);
 void Rain_Main(void);
 void Rain_InitAll(void);
 bool8 Rain_Finish(void);
@@ -188,10 +197,6 @@ void Snow_InitVars(void);
 void Snow_Main(void);
 void Snow_InitAll(void);
 bool8 Snow_Finish(void);
-void Thunderstorm_InitVars(void);
-void Thunderstorm_Main(void);
-void Thunderstorm_InitAll(void);
-bool8 Thunderstorm_Finish(void);
 void FogHorizontal_InitVars(void);
 void FogHorizontal_Main(void);
 void FogHorizontal_InitAll(void);
@@ -208,25 +213,23 @@ void FogDiagonal_InitVars(void);
 void FogDiagonal_Main(void);
 void FogDiagonal_InitAll(void);
 bool8 FogDiagonal_Finish(void);
-void Shade_InitVars(void);
-void Shade_Main(void);
-void Shade_InitAll(void);
-bool8 Shade_Finish(void);
 void Drought_InitVars(void);
 void Drought_Main(void);
 void Drought_InitAll(void);
 bool8 Drought_Finish(void);
-void Downpour_InitVars(void);
-void Downpour_InitAll(void);
 void Bubbles_InitVars(void);
 void Bubbles_Main(void);
 void Bubbles_InitAll(void);
 bool8 Bubbles_Finish(void);
 
 u8 GetSavedWeather(void);
-void SetSavedWeather(u32 weather);
+u8 GetSavedWeatherIntensity(void);
+u8 GetCurrentAbnormalWeatherIntensity(void);
+void SetSavedWeather(u8 weather);
+void SetSavedWeatherIntensity(u8 intensity);
 void SetSavedWeatherFromCurrMapHeader(void);
-void SetWeather(u32 weather);
+void SetWeather(u8 weather);
+void SetWeatherIntensity(u8 intensity);
 void DoCurrentWeather(void);
 void UpdateWeatherPerDay(u16 increment);
 void ResumePausedWeather(void);

@@ -36,6 +36,7 @@ struct RGBColor
 struct WeatherCallbacks
 {
     void (*initVars)(void);
+    void (*intensity)(void);
     void (*main)(void);
     void (*initAll)(void);
     bool8 (*finish)(void);
@@ -84,21 +85,18 @@ struct Weather *const gWeatherPtr = &gWeather;
 
 static const struct WeatherCallbacks sWeatherFuncs[] =
 {
-    [WEATHER_NONE]               = {None_Init,              None_Main,          None_Init,             None_Finish},
-    [WEATHER_SUNNY_CLOUDS]       = {Clouds_InitVars,        Clouds_Main,        Clouds_InitAll,        Clouds_Finish},
-    [WEATHER_SUNNY]              = {Sunny_InitVars,         Sunny_Main,         Sunny_InitAll,         Sunny_Finish},
-    [WEATHER_RAIN]               = {Rain_InitVars,          Rain_Main,          Rain_InitAll,          Rain_Finish},
-    [WEATHER_SNOW]               = {Snow_InitVars,          Snow_Main,          Snow_InitAll,          Snow_Finish},
-    [WEATHER_RAIN_THUNDERSTORM]  = {Thunderstorm_InitVars,  Thunderstorm_Main,  Thunderstorm_InitAll,  Thunderstorm_Finish},
-    [WEATHER_FOG_HORIZONTAL]     = {FogHorizontal_InitVars, FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
-    [WEATHER_VOLCANIC_ASH]       = {Ash_InitVars,           Ash_Main,           Ash_InitAll,           Ash_Finish},
-    [WEATHER_SANDSTORM]          = {Sandstorm_InitVars,     Sandstorm_Main,     Sandstorm_InitAll,     Sandstorm_Finish},
-    [WEATHER_FOG_DIAGONAL]       = {FogDiagonal_InitVars,   FogDiagonal_Main,   FogDiagonal_InitAll,   FogDiagonal_Finish},
-    [WEATHER_UNDERWATER]         = {FogHorizontal_InitVars, FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
-    [WEATHER_SHADE]              = {Shade_InitVars,         Shade_Main,         Shade_InitAll,         Shade_Finish},
-    [WEATHER_DROUGHT]            = {Drought_InitVars,       Drought_Main,       Drought_InitAll,       Drought_Finish},
-    [WEATHER_DOWNPOUR]           = {Downpour_InitVars,      Thunderstorm_Main,  Downpour_InitAll,      Thunderstorm_Finish},
-    [WEATHER_UNDERWATER_BUBBLES] = {Bubbles_InitVars,       Bubbles_Main,       Bubbles_InitAll,       Bubbles_Finish},
+    [WEATHER_NONE]               = {None_Init,              None_Main,      None_Main,          None_Init,             None_Finish},
+    [WEATHER_SUNNY_CLOUDS]       = {Clouds_InitVars,        None_Main,      Clouds_Main,        Clouds_InitAll,        Clouds_Finish},
+    [WEATHER_SUNNY]              = {Sunny_InitVars,         None_Main,      Sunny_Main,         Sunny_InitAll,         Sunny_Finish},
+    [WEATHER_RAIN]               = {Rain_InitVars,          Rain_Intensity, Rain_Main,          Rain_InitAll,          Rain_Finish},
+    [WEATHER_SNOW]               = {Snow_InitVars,          None_Main,      Snow_Main,          Snow_InitAll,          Snow_Finish},
+    [WEATHER_FOG_HORIZONTAL]     = {FogHorizontal_InitVars, None_Main,      FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
+    [WEATHER_VOLCANIC_ASH]       = {Ash_InitVars,           None_Main,      Ash_Main,           Ash_InitAll,           Ash_Finish},
+    [WEATHER_SANDSTORM]          = {Sandstorm_InitVars,     None_Main,      Sandstorm_Main,     Sandstorm_InitAll,     Sandstorm_Finish},
+    [WEATHER_FOG_DIAGONAL]       = {FogDiagonal_InitVars,   None_Main,      FogDiagonal_Main,   FogDiagonal_InitAll,   FogDiagonal_Finish},
+    [WEATHER_UNDERWATER]         = {FogHorizontal_InitVars, None_Main,      FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
+    [WEATHER_DROUGHT]            = {Drought_InitVars,       None_Main,      Drought_Main,       Drought_InitAll,       Drought_Finish},
+    [WEATHER_UNDERWATER_BUBBLES] = {Bubbles_InitVars,       None_Main,      Bubbles_Main,       Bubbles_InitAll,       Bubbles_Finish},
 };
 
 void (*const gWeatherPalStateFuncs[])(void) =
@@ -151,6 +149,7 @@ static const u8 sBasePaletteColorMapTypes[32] =
 
 const u16 gFogPalette[] = INCBIN_U16("graphics/weather/fog.gbapal");
 
+static u8 GetRandomAbnormalWeather(void);
 void StartWeather(void)
 {
     if (!FuncIsActiveTask(Task_WeatherMain))
@@ -161,6 +160,9 @@ void StartWeather(void)
         gWeatherPtr->contrastColorMapSpritePalIndex = index;
         gWeatherPtr->weatherPicSpritePalIndex = AllocSpritePalette(PALTAG_WEATHER_2);
         gWeatherPtr->rainSpriteCount = 0;
+        gWeatherPtr->rainSpriteVisibleCounter = 0;
+        gWeatherPtr->updatingRainSprites = FALSE;
+        gWeatherPtr->rainSEPlaying = 0;
         gWeatherPtr->curRainSpriteIndex = 0;
         gWeatherPtr->cloudSpritesCreated = 0;
         gWeatherPtr->snowflakeSpriteCount = 0;
@@ -172,7 +174,9 @@ void StartWeather(void)
         gWeatherPtr->bubblesSpritesCreated = 0;
         gWeatherPtr->lightenedFogSpritePalsCount = 0;
         Weather_SetBlendCoeffs(16, 0);
-        gWeatherPtr->currWeather = 0;
+        gWeatherPtr->currWeather = WEATHER_NONE;
+        gWeatherPtr->currIntensity = WTHR_INTENSITY_LOW;
+        gWeatherPtr->nextAbnormalWeather = GetRandomAbnormalWeather();  // Init with random abnormal weather
         gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
         gWeatherPtr->readyForInit = FALSE;
         gWeatherPtr->weatherChangeComplete = TRUE;
@@ -182,35 +186,45 @@ void StartWeather(void)
 
 void SetNextWeather(u8 weather)
 {
-    if (weather != WEATHER_RAIN && weather != WEATHER_RAIN_THUNDERSTORM && weather != WEATHER_DOWNPOUR)
-    {
-        PlayRainStoppingSoundEffect();
-    }
-
     if (gWeatherPtr->nextWeather != weather && gWeatherPtr->currWeather == weather)
-    {
         sWeatherFuncs[weather].initVars();
-    }
 
-    gWeatherPtr->weatherChangeComplete = FALSE;
     gWeatherPtr->nextWeather = weather;
     gWeatherPtr->finishStep = 0;
 }
 
 void SetCurrentAndNextWeather(u8 weather)
 {
-    PlayRainStoppingSoundEffect();
     gWeatherPtr->currWeather = weather;
     gWeatherPtr->nextWeather = weather;
 }
 
+void SetCurrentAndNextWeatherIntensity(u8 intensity)
+{
+    gWeatherPtr->currIntensity = intensity;
+    gWeatherPtr->nextIntensity = intensity;
+}
+
 void SetCurrentAndNextWeatherNoDelay(u8 weather)
 {
-    PlayRainStoppingSoundEffect();
     gWeatherPtr->currWeather = weather;
     gWeatherPtr->nextWeather = weather;
     // Overrides the normal delay during screen fading.
     gWeatherPtr->readyForInit = TRUE;
+}
+
+void SetNextWeatherIntensity(u8 intensity)
+{
+    gWeatherPtr->nextIntensity = intensity;
+}
+
+// 50/50 chance of being strong rain or extreme sun
+static u8 GetRandomAbnormalWeather(void)
+{
+    if (Random() % 2)
+        return WEATHER_RAIN;
+    else
+        return WEATHER_DROUGHT;
 }
 
 static void Task_WeatherInit(u8 taskId)
@@ -226,8 +240,10 @@ static void Task_WeatherInit(u8 taskId)
 
 static void Task_WeatherMain(u8 taskId)
 {
+    // Changing weather
     if (gWeatherPtr->currWeather != gWeatherPtr->nextWeather)
     {
+        gWeatherPtr->weatherChangeComplete = FALSE;
         if (!sWeatherFuncs[gWeatherPtr->currWeather].finish()
             && gWeatherPtr->palProcessingState != WEATHER_PAL_STATE_SCREEN_FADING_OUT)
         {
@@ -240,10 +256,16 @@ static void Task_WeatherMain(u8 taskId)
         }
     }
     else
-    {
         sWeatherFuncs[gWeatherPtr->currWeather].main();
+
+    // Changing weather intensity and weather isn't changing
+    if (gWeatherPtr->currIntensity != gWeatherPtr->nextIntensity && gWeatherPtr->weatherChangeComplete && gWeatherPtr->weatherGfxLoaded)
+    {
+        sWeatherFuncs[gWeatherPtr->currWeather].intensity();
+        gWeatherPtr->currIntensity = gWeatherPtr->nextIntensity;
     }
 
+    // Update palette processing state
     gWeatherPalStateFuncs[gWeatherPtr->palProcessingState]();
 }
 
@@ -378,10 +400,7 @@ static void FadeInScreenWithWeather(void)
     switch (gWeatherPtr->currWeather)
     {
     case WEATHER_RAIN:
-    case WEATHER_RAIN_THUNDERSTORM:
-    case WEATHER_DOWNPOUR:
     case WEATHER_SNOW:
-    case WEATHER_SHADE:
         if (FadeInScreen_RainShowShade() == FALSE)
         {
             gWeatherPtr->colorMapIndex = 3;
@@ -770,11 +789,8 @@ void FadeScreen(u8 mode, s8 delay)
     switch (gWeatherPtr->currWeather)
     {
     case WEATHER_RAIN:
-    case WEATHER_RAIN_THUNDERSTORM:
-    case WEATHER_DOWNPOUR:
     case WEATHER_SNOW:
     case WEATHER_FOG_HORIZONTAL:
-    case WEATHER_SHADE:
     case WEATHER_DROUGHT:
         useWeatherPal = TRUE;
         break;
@@ -997,69 +1013,38 @@ bool8 Weather_UpdateBlend(void)
     return FALSE;
 }
 
-// Unused. Uses the same numbering scheme as the coord events
-static void SetFieldWeather(u8 weather)
-{
-    switch (weather)
-    {
-    case COORD_EVENT_WEATHER_SUNNY_CLOUDS:
-        SetWeather(WEATHER_SUNNY_CLOUDS);
-        break;
-    case COORD_EVENT_WEATHER_SUNNY:
-        SetWeather(WEATHER_SUNNY);
-        break;
-    case COORD_EVENT_WEATHER_RAIN:
-        SetWeather(WEATHER_RAIN);
-        break;
-    case COORD_EVENT_WEATHER_SNOW:
-        SetWeather(WEATHER_SNOW);
-        break;
-    case COORD_EVENT_WEATHER_RAIN_THUNDERSTORM:
-        SetWeather(WEATHER_RAIN_THUNDERSTORM);
-        break;
-    case COORD_EVENT_WEATHER_FOG_HORIZONTAL:
-        SetWeather(WEATHER_FOG_HORIZONTAL);
-        break;
-    case COORD_EVENT_WEATHER_FOG_DIAGONAL:
-        SetWeather(WEATHER_FOG_DIAGONAL);
-        break;
-    case COORD_EVENT_WEATHER_VOLCANIC_ASH:
-        SetWeather(WEATHER_VOLCANIC_ASH);
-        break;
-    case COORD_EVENT_WEATHER_SANDSTORM:
-        SetWeather(WEATHER_SANDSTORM);
-        break;
-    case COORD_EVENT_WEATHER_SHADE:
-        SetWeather(WEATHER_SHADE);
-        break;
-    }
-}
-
 u8 GetCurrentWeather(void)
 {
     return gWeatherPtr->currWeather;
 }
 
-void SetRainStrengthFromSoundEffect(u16 soundEffect)
+bool8 IsThunderstorm(void)
+{
+    return gWeatherPtr->currWeather == WEATHER_RAIN && gWeatherPtr->currIntensity == WTHR_INTENSITY_EXTREME;
+}
+
+u16 GetRainSEFromIntensity(u8 intensity)
+{
+    switch (intensity)
+    {
+    default:
+    case WTHR_INTENSITY_LOW:
+        return SE_LIGHT_RAIN;
+    case WTHR_INTENSITY_MILD:
+        return SE_RAIN;
+    case WTHR_INTENSITY_STRONG:
+        return SE_DOWNPOUR;
+    case WTHR_INTENSITY_EXTREME:
+        return SE_THUNDERSTORM;
+    }
+}
+
+void PlayRainSoundEffect(u16 se)
 {
     if (gWeatherPtr->palProcessingState != WEATHER_PAL_STATE_SCREEN_FADING_OUT)
     {
-        switch (soundEffect)
-        {
-        case SE_RAIN:
-            gWeatherPtr->rainStrength = 0;
-            break;
-        case SE_DOWNPOUR:
-            gWeatherPtr->rainStrength = 1;
-            break;
-        case SE_THUNDERSTORM:
-            gWeatherPtr->rainStrength = 2;
-            break;
-        default:
-            return;
-        }
-
-        PlaySE(soundEffect);
+        gWeatherPtr->rainSEPlaying = se;
+        PlaySE(se);
     }
 }
 
@@ -1067,19 +1052,9 @@ void PlayRainStoppingSoundEffect(void)
 {
     if (IsSpecialSEPlaying())
     {
-        switch (gWeatherPtr->rainStrength)
-        {
-        case 0:
-            PlaySE(SE_RAIN_STOP);
-            break;
-        case 1:
-            PlaySE(SE_DOWNPOUR_STOP);
-            break;
-        case 2:
-        default:
-            PlaySE(SE_THUNDERSTORM_STOP);
-            break;
-        }
+        // Rain stopping sound effects are always the next index after the standard rain sound effects
+        PlaySE(gWeatherPtr->rainSEPlaying + 1);
+        gWeatherPtr->rainSEPlaying = 0;
     }
 }
 

@@ -705,9 +705,17 @@ bool8 ScrCmd_gettime(struct ScriptContext *ctx)
 
 bool8 ScrCmd_setweather(struct ScriptContext *ctx)
 {
-    u16 weather = VarGet(ScriptReadHalfword(ctx));
+    u8 weather = VarGet(ScriptReadByte(ctx));
 
     SetSavedWeather(weather);
+    return FALSE;
+}
+
+bool8 ScrCmd_setweatherintensity(struct ScriptContext* ctx)
+{
+    u8 intensity = VarGet(ScriptReadByte(ctx));
+
+    SetSavedWeatherIntensity(intensity);
     return FALSE;
 }
 

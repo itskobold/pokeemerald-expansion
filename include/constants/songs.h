@@ -84,10 +84,10 @@
 #define SE_MUD_BALL                 78 // SE_TOY_DANGO
 #define SE_FIELD_POISON             79 // SE_DOKU
 #define SE_ESCALATOR                80 // SE_ESUKA
-#define SE_THUNDERSTORM             81 // SE_T_AME
-#define SE_THUNDERSTORM_STOP        82 // SE_T_AME_E
-#define SE_DOWNPOUR                 83 // SE_T_OOAME
-#define SE_DOWNPOUR_STOP            84 // SE_T_OOAME_E
+#define SE_DOWNPOUR                 81 // SE_T_AME			Downpour and thunderstorm effects have been swapped from vanilla
+#define SE_DOWNPOUR_STOP            82 // SE_T_AME_E		TODO: sound effects for low intensity rain
+#define SE_THUNDERSTORM             83 // SE_T_OOAME
+#define SE_THUNDERSTORM_STOP        84 // SE_T_OOAME_E
 #define SE_RAIN                     85 // SE_T_KOAME
 #define SE_RAIN_STOP                86 // SE_T_KOAME_E
 #define SE_THUNDER                  87 // SE_T_KAMI
@@ -276,7 +276,10 @@
 #define SE_PIKE_CURTAIN_CLOSE       267 // SE_CURTAIN
 #define SE_PIKE_CURTAIN_OPEN        268 // SE_CURTAIN1
 #define SE_SUDOWOODO_SHAKE          269 // SE_USSOKI
-#define END_SE                      SE_SUDOWOODO_SHAKE
+// New SFX
+#define SE_LIGHT_RAIN				270
+#define SE_LIGHT_RAIN_STOP			271
+#define END_SE                      SE_LIGHT_RAIN_STOP
 
 // Music
 #define START_MUS                   350

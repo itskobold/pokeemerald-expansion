@@ -1188,6 +1188,12 @@ $(MID_SUBDIR)/se_u.s: %.s: %.mid
 $(MID_SUBDIR)/se_sudowoodo_shake.s: %.s: %.mid
 	$(MID) $< $@ -E -R$(STD_REVERB) -G129 -V077 -P5
 
+$(MID_SUBDIR)/se_light_rain.s: %.s: %.mid
+	$(MID) $< $@ -E -R$(STD_REVERB) -G128 -V080 -P2
+
+$(MID_SUBDIR)/se_light_rain_stop.s: %.s: %.mid
+	$(MID) $< $@ -E -R$(STD_REVERB) -G128 -V080 -P2
+
 $(MID_SUBDIR)/se_m_double_slap.s: %.s: %.mid
 	$(MID) $< $@ -E -R$(STD_REVERB) -G128 -V110 -P4
 

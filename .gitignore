@@ -39,3 +39,7 @@ prefabs.json
 *.diff
 *.sym
 *.js
+.vs/
+.resources/
+*.asd
+*.stackdump

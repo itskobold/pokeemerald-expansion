@@ -418,6 +418,16 @@ static void Task_CableCar(u8 taskId)
         // Wait to change weather
         if (sCableCar->timer == sCableCar->weatherDelay)
         {
+            /*if (sCableCar->weather == WEATHER_ABNORMAL)
+            {
+                i = gWeatherPtr->nextAbnormalWeather;
+                SetNextWeatherIntensity(GetCurrentAbnormalWeatherIntensity());
+            }
+            // TODO: handle intensity here when we know what we want to do with it in this instance
+            else
+                i = sCableCar->weather;
+            SetNextWeather(i);*/
+
             SetNextWeather(sCableCar->weather);
             sCableCar->state = 1;
         }

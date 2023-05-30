@@ -14,9 +14,6 @@
 #include "trig.h"
 #include "gpu_regs.h"
 
-EWRAM_DATA static u8 sCurrentAbnormalWeather = 0;
-EWRAM_DATA static u16 sUnusedWeatherRelated = 0;
-
 const u16 gCloudsWeatherPalette[] = INCBIN_U16("graphics/weather/cloud.gbapal");
 const u16 gSandstormWeatherPalette[] = INCBIN_U16("graphics/weather/sandstorm.gbapal");
 const u8 gWeatherFogDiagonalTiles[] = INCBIN_U8("graphics/weather/fog_diagonal.4bpp");
@@ -354,6 +351,7 @@ static void UpdateDroughtBlend(u8 taskId)
 // WEATHER_RAIN
 //------------------------------------------------------------------------------
 
+static void SetDownpour(void);
 static void LoadRainSpriteSheet(void);
 static bool8 CreateRainSprite(void);
 static void UpdateRainSprite(struct Sprite *sprite);
@@ -468,17 +466,44 @@ static const struct SpriteSheet sRainSpriteSheet =
     .tag = GFXTAG_RAIN,
 };
 
+enum {
+    RAIN_STATE_LOAD_SPRITES,
+    RAIN_STATE_CREATE_SPRITES,
+    RAIN_STATE_UPDATE_SE,
+    RAIN_STATE_UPDATE_SPRITES
+};
+
+enum {
+    THUNDER_STATE_NEW_CYCLE,
+    THUNDER_STATE_NEW_CYCLE_WAIT,
+    THUNDER_STATE_INIT_CYCLE_1,
+    THUNDER_STATE_INIT_CYCLE_2,
+    THUNDER_STATE_SHORT_BOLT,
+    THUNDER_STATE_TRY_NEW_BOLT,
+    THUNDER_STATE_WAIT_BOLT_SHORT,
+    THUNDER_STATE_INIT_BOLT_LONG,
+    THUNDER_STATE_WAIT_BOLT_LONG,
+    THUNDER_STATE_FADE_BOLT_LONG,
+    THUNDER_STATE_END_BOLT_LONG,
+};
+
+static void UpdateThunderSound(void);
+static void EnqueueThunder(u16);
+
+static const u8 sRainSpriteCounts[] = { 2, 10, 16, 24 };
+static const u8 sRainSpriteDelays[] = { 32, 16, 8, 4 };
+
 void Rain_InitVars(void)
 {
-    gWeatherPtr->initStep = 0;
-    gWeatherPtr->weatherGfxLoaded = FALSE;
-    gWeatherPtr->rainSpriteVisibleCounter = 0;
-    gWeatherPtr->rainSpriteVisibleDelay = 8;
-    gWeatherPtr->isDownpour = FALSE;
-    gWeatherPtr->targetRainSpriteCount = 10;
-    gWeatherPtr->targetColorMapIndex = 3;
     gWeatherPtr->colorMapStepDelay = 20;
-    SetRainStrengthFromSoundEffect(SE_RAIN);
+    gWeatherPtr->targetColorMapIndex = 3;
+    gWeatherPtr->initStep = THUNDER_STATE_NEW_CYCLE;
+    gWeatherPtr->rainStep = RAIN_STATE_LOAD_SPRITES;
+    gWeatherPtr->targetRainSpriteCount = sRainSpriteCounts[gWeatherPtr->nextIntensity];
+    gWeatherPtr->rainSpriteVisibleDelay = sRainSpriteDelays[gWeatherPtr->nextIntensity];
+    gWeatherPtr->weatherGfxLoaded = FALSE;
+    gWeatherPtr->thunderEnqueued = FALSE;
+    SetDownpour();
 }
 
 void Rain_InitAll(void)
@@ -488,25 +513,142 @@ void Rain_InitAll(void)
         Rain_Main();
 }
 
+void Rain_Intensity(void)
+{
+    // Update rain sprites and their visible counts
+    SetDownpour();
+    gWeatherPtr->targetRainSpriteCount = sRainSpriteCounts[gWeatherPtr->nextIntensity];
+    gWeatherPtr->rainSpriteVisibleDelay = sRainSpriteDelays[gWeatherPtr->nextIntensity];
+    gWeatherPtr->updatingRainSprites = TRUE;
+    gWeatherPtr->rainStep = RAIN_STATE_UPDATE_SE;
+}
+
+// TODO: thunderstorm sound/flashes must end far quicker than they do now. 
+// If the screen is not currently flashing/a sound effect is not currently playing and there's no longer a thunderstorm, end it immediately
 void Rain_Main(void)
 {
-    switch (gWeatherPtr->initStep)
+    u16 nextSE;
+    UpdateThunderSound();
+
+    // Handle rain sprites
+    switch (gWeatherPtr->rainStep)
     {
-    case 0:
+    case RAIN_STATE_LOAD_SPRITES:
         LoadRainSpriteSheet();
-        gWeatherPtr->initStep++;
+        gWeatherPtr->rainStep++;
         break;
-    case 1:
+    case RAIN_STATE_CREATE_SPRITES:
         if (!CreateRainSprite())
-            gWeatherPtr->initStep++;
+            gWeatherPtr->rainStep++;
         break;
-    case 2:
+    case RAIN_STATE_UPDATE_SE:
+        // Update rain sound effect if needed
+        nextSE = GetRainSEFromIntensity(gWeatherPtr->nextIntensity);
+        if (nextSE != gWeatherPtr->rainSEPlaying)
+            PlayRainSoundEffect(nextSE);
+        gWeatherPtr->rainStep++;
+        break;
+    case RAIN_STATE_UPDATE_SPRITES:
         if (!UpdateVisibleRainSprites())
-        {
             gWeatherPtr->weatherGfxLoaded = TRUE;
-            gWeatherPtr->initStep++;
-        }
         break;
+    }
+
+    // Rain has loaded, let's process the thunderstorm
+    if (gWeatherPtr->rainStep >= RAIN_STATE_UPDATE_SPRITES)
+    {
+        switch (gWeatherPtr->initStep)
+        {
+        case THUNDER_STATE_NEW_CYCLE:
+            gWeatherPtr->thunderAllowEnd = TRUE;
+            // If it's no longer a thunderstorm, don't start a new cycle
+            if (gWeatherPtr->nextIntensity != WTHR_INTENSITY_EXTREME)
+                break;
+            gWeatherPtr->thunderTimer = (Random() % 360) + 360;
+            gWeatherPtr->initStep++;
+            // fall through
+        case THUNDER_STATE_NEW_CYCLE_WAIT:
+            // Wait between 360-720 frames before starting a new cycle.
+            if (--gWeatherPtr->thunderTimer == 0)
+                gWeatherPtr->initStep++;
+            break;
+        case THUNDER_STATE_INIT_CYCLE_1:
+            gWeatherPtr->thunderAllowEnd = TRUE;
+            gWeatherPtr->thunderLongBolt = Random() % 2;
+            gWeatherPtr->initStep++;
+            break;
+        case THUNDER_STATE_INIT_CYCLE_2:
+            gWeatherPtr->thunderShortBolts = (Random() & 1) + 1;
+            gWeatherPtr->initStep++;
+            // fall through
+        case THUNDER_STATE_SHORT_BOLT:
+            // Short bolt of lightning strikes.
+            ApplyWeatherColorMapIfIdle(19);
+            // If final lightning bolt, enqueue thunder.
+            if (!gWeatherPtr->thunderLongBolt && gWeatherPtr->thunderShortBolts == 1)
+                EnqueueThunder(20);
+
+            gWeatherPtr->thunderTimer = (Random() % 3) + 6;
+            gWeatherPtr->initStep++;
+            break;
+        case THUNDER_STATE_TRY_NEW_BOLT:
+            if (--gWeatherPtr->thunderTimer == 0)
+            {
+                // Short bolt of lightning ends.
+                ApplyWeatherColorMapIfIdle(3);
+                gWeatherPtr->thunderAllowEnd = TRUE;
+                if (--gWeatherPtr->thunderShortBolts != 0)
+                {
+                    // Wait a little, then do another short bolt.
+                    gWeatherPtr->thunderTimer = (Random() % 16) + 60;
+                    gWeatherPtr->initStep = THUNDER_STATE_WAIT_BOLT_SHORT;
+                }
+                else if (!gWeatherPtr->thunderLongBolt)
+                {
+                    // No more bolts, restart loop.
+                    gWeatherPtr->initStep = THUNDER_STATE_NEW_CYCLE;
+                }
+                else
+                {
+                    // Set up long bolt.
+                    gWeatherPtr->initStep = THUNDER_STATE_INIT_BOLT_LONG;
+                }
+            }
+            break;
+        case THUNDER_STATE_WAIT_BOLT_SHORT:
+            if (--gWeatherPtr->thunderTimer == 0)
+                gWeatherPtr->initStep = THUNDER_STATE_SHORT_BOLT;
+            break;
+        case THUNDER_STATE_INIT_BOLT_LONG:
+            gWeatherPtr->thunderTimer = (Random() % 16) + 60;
+            gWeatherPtr->initStep++;
+            break;
+        case THUNDER_STATE_WAIT_BOLT_LONG:
+            if (--gWeatherPtr->thunderTimer == 0)
+            {
+                // Do long bolt. Enqueue thunder with a potentially longer delay.
+                EnqueueThunder(100);
+                ApplyWeatherColorMapIfIdle(19);
+                gWeatherPtr->thunderTimer = (Random() & 0xF) + 30;
+                gWeatherPtr->initStep++;
+            }
+            break;
+        case THUNDER_STATE_FADE_BOLT_LONG:
+            if (--gWeatherPtr->thunderTimer == 0)
+            {
+                // Fade long bolt out over time.
+                ApplyWeatherColorMapIfIdle_Gradual(19, 3, 5);
+                gWeatherPtr->initStep++;
+            }
+            break;
+        case THUNDER_STATE_END_BOLT_LONG:
+            if (gWeatherPtr->palProcessingState == WEATHER_PAL_STATE_IDLE)
+            {
+                gWeatherPtr->thunderAllowEnd = TRUE;
+                gWeatherPtr->initStep = THUNDER_STATE_NEW_CYCLE;
+            }
+            break;
+        }
     }
 }
 
@@ -515,29 +657,36 @@ bool8 Rain_Finish(void)
     switch (gWeatherPtr->finishStep)
     {
     case 0:
-        if (gWeatherPtr->nextWeather == WEATHER_RAIN
-         || gWeatherPtr->nextWeather == WEATHER_RAIN_THUNDERSTORM
-         || gWeatherPtr->nextWeather == WEATHER_DOWNPOUR)
+        if (gWeatherPtr->currIntensity == WTHR_INTENSITY_EXTREME)
+            gWeatherPtr->thunderAllowEnd = FALSE;
+        gWeatherPtr->finishStep++;
+        // fall through
+    case 1:
+        if (gWeatherPtr->currIntensity == WTHR_INTENSITY_EXTREME)
+            Rain_Main();
+        if (gWeatherPtr->thunderAllowEnd || gWeatherPtr->currIntensity < WTHR_INTENSITY_EXTREME)
         {
-            gWeatherPtr->finishStep = 0xFF;
-            return FALSE;
-        }
-        else
-        {
+            if (gWeatherPtr->nextWeather == WEATHER_RAIN)
+                return FALSE;
+
             gWeatherPtr->targetRainSpriteCount = 0;
             gWeatherPtr->finishStep++;
         }
-        // fall through
-    case 1:
+        break;
+    case 2:
         if (!UpdateVisibleRainSprites())
         {
             DestroyRainSprites();
+            PlayRainStoppingSoundEffect();
+            gWeatherPtr->thunderEnqueued = FALSE;
             gWeatherPtr->finishStep++;
             return FALSE;
         }
-        return TRUE;
+        break;
+    default:
+        return FALSE;
     }
-    return FALSE;
+    return TRUE;
 }
 
 #define tCounter data[0]
@@ -548,12 +697,23 @@ bool8 Rain_Finish(void)
 #define tActive  data[5]
 #define tWaiting data[6]
 
+static void SetDownpour(void)
+{
+    if (gWeatherPtr->nextIntensity < WTHR_INTENSITY_STRONG)
+        gWeatherPtr->isDownpour = FALSE;
+    else
+        gWeatherPtr->isDownpour = TRUE;
+}
+
+
 static void StartRainSpriteFall(struct Sprite *sprite)
 {
     u32 rand;
     u16 numFallingFrames;
     int tileX;
     int tileY;
+
+    // Check if sprite needs to be destroyed because intensity has lowered
 
     if (sprite->tRandom == 0)
         sprite->tRandom = 361;
@@ -564,10 +724,7 @@ static void StartRainSpriteFall(struct Sprite *sprite)
     numFallingFrames = sRainSpriteFallingDurations[gWeatherPtr->isDownpour][0];
 
     tileX = sprite->tRandom % 30;
-    sprite->tPosX = tileX * 8; // Useless assignment, leftover from before fixed-point values were used
-
     tileY = sprite->tRandom / 30;
-    sprite->tPosY = tileY * 8; // Useless assignment, leftover from before fixed-point values were used
 
     sprite->tPosX = tileX;
     sprite->tPosX <<= 7; // This is tileX * 8, using a fixed-point value with 4 decimal places
@@ -714,9 +871,15 @@ static bool8 CreateRainSprite(void)
 static bool8 UpdateVisibleRainSprites(void)
 {
     if (gWeatherPtr->curRainSpriteIndex == gWeatherPtr->targetRainSpriteCount)
+    {
+        gWeatherPtr->updatingRainSprites = FALSE;
         return FALSE;
+    }
 
-    if (++gWeatherPtr->rainSpriteVisibleCounter > gWeatherPtr->rainSpriteVisibleDelay)
+    // If rain sprites are being updated through intensity, change their count quickly
+    u8 delay = gWeatherPtr->updatingRainSprites ? 4 : gWeatherPtr->rainSpriteVisibleDelay;
+
+    if (++gWeatherPtr->rainSpriteVisibleCounter > delay)
     {
         gWeatherPtr->rainSpriteVisibleCounter = 0;
         if (gWeatherPtr->curRainSpriteIndex < gWeatherPtr->targetRainSpriteCount)
@@ -735,7 +898,7 @@ static bool8 UpdateVisibleRainSprites(void)
 
 static void DestroyRainSprites(void)
 {
-    u16 i;
+    u8 i;
 
     for (i = 0; i < gWeatherPtr->rainSpriteCount; i++)
     {
@@ -753,6 +916,39 @@ static void DestroyRainSprites(void)
 #undef tState
 #undef tActive
 #undef tWaiting
+
+// Enqueue a thunder sound effect for at most `waitFrames` frames from now.
+static void EnqueueThunder(u16 waitFrames)
+{
+    if (!gWeatherPtr->thunderEnqueued)
+    {
+        gWeatherPtr->thunderSETimer = Random() % waitFrames;
+        gWeatherPtr->thunderEnqueued = TRUE;
+    }
+}
+
+static void UpdateThunderSound(void)
+{
+    if (gWeatherPtr->thunderEnqueued == TRUE)
+    {
+        if (gWeatherPtr->thunderSETimer == 0)
+        {
+            if (IsSEPlaying())
+                return;
+
+            if (Random() & 1)
+                PlaySE(SE_THUNDER);
+            else
+                PlaySE(SE_THUNDER2);
+
+            gWeatherPtr->thunderEnqueued = FALSE;
+        }
+        else
+        {
+            gWeatherPtr->thunderSETimer--;
+        }
+    }
+}
 
 //------------------------------------------------------------------------------
 // Snow
@@ -1006,270 +1202,6 @@ static void UpdateSnowflakeSprite(struct Sprite *sprite)
 #undef tFallCounter
 #undef tFallDuration
 #undef tDeltaY2
-
-//------------------------------------------------------------------------------
-// WEATHER_RAIN_THUNDERSTORM
-//------------------------------------------------------------------------------
-
-enum {
-    // This block of states is run only once
-    // when first setting up the thunderstorm
-    THUNDER_STATE_LOAD_RAIN,
-    THUNDER_STATE_CREATE_RAIN,
-    THUNDER_STATE_INIT_RAIN,
-    THUNDER_STATE_WAIT_CHANGE,
-
-    // The thunderstorm loops through these states,
-    // not necessarily in order.
-    THUNDER_STATE_NEW_CYCLE,
-    THUNDER_STATE_NEW_CYCLE_WAIT,
-    THUNDER_STATE_INIT_CYCLE_1,
-    THUNDER_STATE_INIT_CYCLE_2,
-    THUNDER_STATE_SHORT_BOLT,
-    THUNDER_STATE_TRY_NEW_BOLT,
-    THUNDER_STATE_WAIT_BOLT_SHORT,
-    THUNDER_STATE_INIT_BOLT_LONG,
-    THUNDER_STATE_WAIT_BOLT_LONG,
-    THUNDER_STATE_FADE_BOLT_LONG,
-    THUNDER_STATE_END_BOLT_LONG,
-};
-
-void Thunderstorm_InitVars(void)
-{
-    gWeatherPtr->initStep = THUNDER_STATE_LOAD_RAIN;
-    gWeatherPtr->weatherGfxLoaded = FALSE;
-    gWeatherPtr->rainSpriteVisibleCounter = 0;
-    gWeatherPtr->rainSpriteVisibleDelay = 4;
-    gWeatherPtr->isDownpour = FALSE;
-    gWeatherPtr->targetRainSpriteCount = 16;
-    gWeatherPtr->targetColorMapIndex = 3;
-    gWeatherPtr->colorMapStepDelay = 20;
-    gWeatherPtr->weatherGfxLoaded = FALSE;  // duplicate assignment
-    gWeatherPtr->thunderEnqueued = FALSE;
-    SetRainStrengthFromSoundEffect(SE_THUNDERSTORM);
-}
-
-void Thunderstorm_InitAll(void)
-{
-    Thunderstorm_InitVars();
-    while (gWeatherPtr->weatherGfxLoaded == FALSE)
-        Thunderstorm_Main();
-}
-
-//------------------------------------------------------------------------------
-// WEATHER_DOWNPOUR
-//------------------------------------------------------------------------------
-
-static void UpdateThunderSound(void);
-static void EnqueueThunder(u16);
-
-void Downpour_InitVars(void)
-{
-    gWeatherPtr->initStep = THUNDER_STATE_LOAD_RAIN;
-    gWeatherPtr->weatherGfxLoaded = FALSE;
-    gWeatherPtr->rainSpriteVisibleCounter = 0;
-    gWeatherPtr->rainSpriteVisibleDelay = 4;
-    gWeatherPtr->isDownpour = TRUE;
-    gWeatherPtr->targetRainSpriteCount = 24;
-    gWeatherPtr->targetColorMapIndex = 3;
-    gWeatherPtr->colorMapStepDelay = 20;
-    gWeatherPtr->weatherGfxLoaded = FALSE;  // duplicate assignment
-    SetRainStrengthFromSoundEffect(SE_DOWNPOUR);
-}
-
-void Downpour_InitAll(void)
-{
-    Downpour_InitVars();
-    while (gWeatherPtr->weatherGfxLoaded == FALSE)
-        Thunderstorm_Main();
-}
-
-// In a given cycle, there will be some shorter bolts of lightning, potentially
-// followed by a longer bolt. As a "regex", the pattern is:
-//   (SHORT_BOLT){1,2}(LONG_BOLT)?
-//
-// Thunder only plays on the final bolt of the cycle.
-void Thunderstorm_Main(void)
-{
-    UpdateThunderSound();
-    switch (gWeatherPtr->initStep)
-    {
-    case THUNDER_STATE_LOAD_RAIN:
-        LoadRainSpriteSheet();
-        gWeatherPtr->initStep++;
-        break;
-    case THUNDER_STATE_CREATE_RAIN:
-        if (!CreateRainSprite())
-            gWeatherPtr->initStep++;
-        break;
-    case THUNDER_STATE_INIT_RAIN:
-        if (!UpdateVisibleRainSprites())
-        {
-            gWeatherPtr->weatherGfxLoaded = TRUE;
-            gWeatherPtr->initStep++;
-        }
-        break;
-    case THUNDER_STATE_WAIT_CHANGE:
-        if (gWeatherPtr->palProcessingState != WEATHER_PAL_STATE_CHANGING_WEATHER)
-            gWeatherPtr->initStep = THUNDER_STATE_INIT_CYCLE_1;
-        break;
-    case THUNDER_STATE_NEW_CYCLE:
-        gWeatherPtr->thunderAllowEnd = TRUE;
-        gWeatherPtr->thunderTimer = (Random() % 360) + 360;
-        gWeatherPtr->initStep++;
-        // fall through
-    case THUNDER_STATE_NEW_CYCLE_WAIT:
-        // Wait between 360-720 frames before starting a new cycle.
-        if (--gWeatherPtr->thunderTimer == 0)
-            gWeatherPtr->initStep++;
-        break;
-    case THUNDER_STATE_INIT_CYCLE_1:
-        gWeatherPtr->thunderAllowEnd = TRUE;
-        gWeatherPtr->thunderLongBolt = Random() % 2;
-        gWeatherPtr->initStep++;
-        break;
-    case THUNDER_STATE_INIT_CYCLE_2:
-        gWeatherPtr->thunderShortBolts = (Random() & 1) + 1;
-        gWeatherPtr->initStep++;
-        // fall through
-    case THUNDER_STATE_SHORT_BOLT:
-        // Short bolt of lightning strikes.
-        ApplyWeatherColorMapIfIdle(19);
-        // If final lightning bolt, enqueue thunder.
-        if (!gWeatherPtr->thunderLongBolt && gWeatherPtr->thunderShortBolts == 1)
-            EnqueueThunder(20);
-
-        gWeatherPtr->thunderTimer = (Random() % 3) + 6;
-        gWeatherPtr->initStep++;
-        break;
-    case THUNDER_STATE_TRY_NEW_BOLT:
-        if (--gWeatherPtr->thunderTimer == 0)
-        {
-            // Short bolt of lightning ends.
-            ApplyWeatherColorMapIfIdle(3);
-            gWeatherPtr->thunderAllowEnd = TRUE;
-            if (--gWeatherPtr->thunderShortBolts != 0)
-            {
-                // Wait a little, then do another short bolt.
-                gWeatherPtr->thunderTimer = (Random() % 16) + 60;
-                gWeatherPtr->initStep = THUNDER_STATE_WAIT_BOLT_SHORT;
-            }
-            else if (!gWeatherPtr->thunderLongBolt)
-            {
-                // No more bolts, restart loop.
-                gWeatherPtr->initStep = THUNDER_STATE_NEW_CYCLE;
-            }
-            else
-            {
-                // Set up long bolt.
-                gWeatherPtr->initStep = THUNDER_STATE_INIT_BOLT_LONG;
-            }
-        }
-        break;
-    case THUNDER_STATE_WAIT_BOLT_SHORT:
-        if (--gWeatherPtr->thunderTimer == 0)
-            gWeatherPtr->initStep = THUNDER_STATE_SHORT_BOLT;
-        break;
-    case THUNDER_STATE_INIT_BOLT_LONG:
-        gWeatherPtr->thunderTimer = (Random() % 16) + 60;
-        gWeatherPtr->initStep++;
-        break;
-    case THUNDER_STATE_WAIT_BOLT_LONG:
-        if (--gWeatherPtr->thunderTimer == 0)
-        {
-            // Do long bolt. Enqueue thunder with a potentially longer delay.
-            EnqueueThunder(100);
-            ApplyWeatherColorMapIfIdle(19);
-            gWeatherPtr->thunderTimer = (Random() & 0xF) + 30;
-            gWeatherPtr->initStep++;
-        }
-        break;
-    case THUNDER_STATE_FADE_BOLT_LONG:
-        if (--gWeatherPtr->thunderTimer == 0)
-        {
-            // Fade long bolt out over time.
-            ApplyWeatherColorMapIfIdle_Gradual(19, 3, 5);
-            gWeatherPtr->initStep++;
-        }
-        break;
-    case THUNDER_STATE_END_BOLT_LONG:
-        if (gWeatherPtr->palProcessingState == WEATHER_PAL_STATE_IDLE)
-        {
-            gWeatherPtr->thunderAllowEnd = TRUE;
-            gWeatherPtr->initStep = THUNDER_STATE_NEW_CYCLE;
-        }
-        break;
-    }
-}
-
-bool8 Thunderstorm_Finish(void)
-{
-    switch (gWeatherPtr->finishStep)
-    {
-    case 0:
-        gWeatherPtr->thunderAllowEnd = FALSE;
-        gWeatherPtr->finishStep++;
-        // fall through
-    case 1:
-        Thunderstorm_Main();
-        if (gWeatherPtr->thunderAllowEnd)
-        {
-            if (gWeatherPtr->nextWeather == WEATHER_RAIN
-             || gWeatherPtr->nextWeather == WEATHER_RAIN_THUNDERSTORM
-             || gWeatherPtr->nextWeather == WEATHER_DOWNPOUR)
-                return FALSE;
-
-            gWeatherPtr->targetRainSpriteCount = 0;
-            gWeatherPtr->finishStep++;
-        }
-        break;
-    case 2:
-        if (!UpdateVisibleRainSprites())
-        {
-            DestroyRainSprites();
-            gWeatherPtr->thunderEnqueued = FALSE;
-            gWeatherPtr->finishStep++;
-            return FALSE;
-        }
-        break;
-    default:
-        return FALSE;
-    }
-    return TRUE;
-}
-
-// Enqueue a thunder sound effect for at most `waitFrames` frames from now.
-static void EnqueueThunder(u16 waitFrames)
-{
-    if (!gWeatherPtr->thunderEnqueued)
-    {
-        gWeatherPtr->thunderSETimer = Random() % waitFrames;
-        gWeatherPtr->thunderEnqueued = TRUE;
-    }
-}
-
-static void UpdateThunderSound(void)
-{
-    if (gWeatherPtr->thunderEnqueued == TRUE)
-    {
-        if (gWeatherPtr->thunderSETimer == 0)
-        {
-            if (IsSEPlaying())
-                return;
-
-            if (Random() & 1)
-                PlaySE(SE_THUNDER);
-            else
-                PlaySE(SE_THUNDER2);
-
-            gWeatherPtr->thunderEnqueued = FALSE;
-        }
-        else
-        {
-            gWeatherPtr->thunderSETimer--;
-        }
-    }
-}
 
 //------------------------------------------------------------------------------
 // WEATHER_FOG_HORIZONTAL and WEATHER_UNDERWATER
@@ -2241,31 +2173,6 @@ static void UpdateSandstormSwirlSprite(struct Sprite *sprite)
 #undef tEntranceDelay
 
 //------------------------------------------------------------------------------
-// WEATHER_SHADE
-//------------------------------------------------------------------------------
-
-void Shade_InitVars(void)
-{
-    gWeatherPtr->initStep = 0;
-    gWeatherPtr->targetColorMapIndex = 3;
-    gWeatherPtr->colorMapStepDelay = 20;
-}
-
-void Shade_InitAll(void)
-{
-    Shade_InitVars();
-}
-
-void Shade_Main(void)
-{
-}
-
-bool8 Shade_Finish(void)
-{
-    return FALSE;
-}
-
-//------------------------------------------------------------------------------
 // WEATHER_UNDERWATER_BUBBLES
 //------------------------------------------------------------------------------
 
@@ -2434,85 +2341,64 @@ static void UpdateBubbleSprite(struct Sprite *sprite)
 
 //------------------------------------------------------------------------------
 
-// Unused function.
-static void UnusedSetCurrentAbnormalWeather(u32 weather, u32 unknown)
-{
-    sCurrentAbnormalWeather = weather;
-    sUnusedWeatherRelated = unknown;
-}
-
 #define tState         data[0]
-#define tWeatherA      data[1]
-#define tWeatherB      data[2]
 #define tDelay         data[15]
 
 static void Task_DoAbnormalWeather(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
 
-    switch (tState)
+    if (tDelay-- <= 0)
     {
-    case 0:
-        if (tDelay-- <= 0)
+        // Strong rain, switching to extreme sun
+        if (tState == 0)
         {
-            SetNextWeather(tWeatherA);
-            sCurrentAbnormalWeather = tWeatherA;
+            SetNextWeatherIntensity(WTHR_INTENSITY_EXTREME);
+            SetNextWeather(WEATHER_DROUGHT);
+            gWeatherPtr->nextAbnormalWeather = WEATHER_DROUGHT;
             tDelay = 600;
-            tState++;
+            tState = 1;
         }
-        break;
-    case 1:
-        if (tDelay-- <= 0)
+        // Extreme sun, switching to strong rain
+        else
         {
-            SetNextWeather(tWeatherB);
-            sCurrentAbnormalWeather = tWeatherB;
+            SetNextWeatherIntensity(WTHR_INTENSITY_STRONG);
+            SetNextWeather(WEATHER_RAIN);
+            gWeatherPtr->nextAbnormalWeather = WEATHER_RAIN;
             tDelay = 600;
             tState = 0;
         }
-        break;
     }
 }
 
-static void CreateAbnormalWeatherTask(void)
+static void CreateAbnormalWeatherTask(bool8 initDelay)
 {
     u8 taskId = CreateTask(Task_DoAbnormalWeather, 0);
     s16 *data = gTasks[taskId].data;
 
-    tDelay = 600;
-    if (sCurrentAbnormalWeather == WEATHER_DOWNPOUR)
-    {
-        // Currently Downpour, next will be Drought
-        tWeatherA = WEATHER_DROUGHT;
-        tWeatherB = WEATHER_DOWNPOUR;
-    }
-    else if (sCurrentAbnormalWeather == WEATHER_DROUGHT)
-    {
-        // Currently Drought, next will be Downpour
-        tWeatherA = WEATHER_DOWNPOUR;
-        tWeatherB = WEATHER_DROUGHT;
-    }
+    if (gWeatherPtr->nextAbnormalWeather == WEATHER_RAIN)
+        tState = 1;
     else
-    {
-        // Default to starting with Downpour
-        sCurrentAbnormalWeather = WEATHER_DOWNPOUR;
-        tWeatherA = WEATHER_DROUGHT;
-        tWeatherB = WEATHER_DOWNPOUR;
-    }
+        tState = 0;
 }
 
 #undef tState
-#undef tWeatherA
-#undef tWeatherB
 #undef tDelay
 
 static u8 TranslateWeatherNum(u8);
 static void UpdateRainCounter(u8, u8);
 
-void SetSavedWeather(u32 weather)
+void SetSavedWeather(u8 weather)
 {
     u8 oldWeather = gSaveBlock1Ptr->weather;
     gSaveBlock1Ptr->weather = TranslateWeatherNum(weather);
     UpdateRainCounter(gSaveBlock1Ptr->weather, oldWeather);
+}
+
+void SetSavedWeatherIntensity(u8 intensity)
+{
+    u8 oldIntensity = gSaveBlock1Ptr->weatherIntensity;
+    gSaveBlock1Ptr->weatherIntensity = intensity;
 }
 
 u8 GetSavedWeather(void)
@@ -2520,6 +2406,20 @@ u8 GetSavedWeather(void)
     return gSaveBlock1Ptr->weather;
 }
 
+u8 GetSavedWeatherIntensity(void)
+{
+    return gSaveBlock1Ptr->weatherIntensity;
+}
+
+u8 GetCurrentAbnormalWeatherIntensity(void)
+{
+    if (gWeatherPtr->nextAbnormalWeather == WEATHER_RAIN)
+        return WTHR_INTENSITY_STRONG;
+    else
+        return WTHR_INTENSITY_EXTREME;
+}
+
+// TODO: rework this to get biome from map header then calculate weather from that
 void SetSavedWeatherFromCurrMapHeader(void)
 {
     u8 oldWeather = gSaveBlock1Ptr->weather;
@@ -2527,53 +2427,84 @@ void SetSavedWeatherFromCurrMapHeader(void)
     UpdateRainCounter(gSaveBlock1Ptr->weather, oldWeather);
 }
 
-void SetWeather(u32 weather)
+static void TryDestroyAbnormalWeatherTask(void);
+
+void SetWeather(u8 weather)
 {
     SetSavedWeather(weather);
-    SetNextWeather(GetSavedWeather());
+    if (weather == WEATHER_ABNORMAL)
+    {
+        if (!FuncIsActiveTask(Task_DoAbnormalWeather))
+            CreateAbnormalWeatherTask(FALSE);
+    }
+    else
+    {
+        TryDestroyAbnormalWeatherTask();
+        SetNextWeather(weather);
+    }
 }
 
-void SetWeather_Unused(u32 weather)
+void SetWeatherIntensity(u8 intensity)
 {
-    SetSavedWeather(weather);
-    SetCurrentAndNextWeather(GetSavedWeather());
+    SetSavedWeatherIntensity(intensity);
+    SetNextWeatherIntensity(intensity);
+}
+
+// Check if abnormal weather is finishing, destroy task if it is
+static void TryDestroyAbnormalWeatherTask(void)
+{
+    if (FuncIsActiveTask(Task_DoAbnormalWeather))
+        DestroyTask(FindTaskIdByFunc(Task_DoAbnormalWeather));
 }
 
 void DoCurrentWeather(void)
 {
+    // Get current weather from save block 1
     u8 weather = GetSavedWeather();
 
+    // Abnormal weather during Kyogre/Groudon conflict
     if (weather == WEATHER_ABNORMAL)
     {
+        // Abnormal weather just started - create a new task
         if (!FuncIsActiveTask(Task_DoAbnormalWeather))
-            CreateAbnormalWeatherTask();
-        weather = sCurrentAbnormalWeather;
+            CreateAbnormalWeatherTask(FALSE);
     }
+    // Otherwise it's normal weather conditions
     else
     {
-        if (FuncIsActiveTask(Task_DoAbnormalWeather))
-            DestroyTask(FindTaskIdByFunc(Task_DoAbnormalWeather));
-        sCurrentAbnormalWeather = WEATHER_DOWNPOUR;
+        TryDestroyAbnormalWeatherTask();
+
+        // Set next weather and intensity
+        SetNextWeatherIntensity(GetSavedWeatherIntensity());
+        SetNextWeather(weather);
     }
-    SetNextWeather(weather);
 }
 
 void ResumePausedWeather(void)
 {
-    u8 weather = GetSavedWeather();
+    u8 weather = GetSavedWeather();  // Get weather from save block 1
+    u8 intensity;
 
+    // Abnormal weather conditions
     if (weather == WEATHER_ABNORMAL)
     {
+        // Create task
         if (!FuncIsActiveTask(Task_DoAbnormalWeather))
-            CreateAbnormalWeatherTask();
-        weather = sCurrentAbnormalWeather;
+            CreateAbnormalWeatherTask(TRUE);
+
+        // Get abnormal weather and intensity
+        weather = gWeatherPtr->nextAbnormalWeather;
+        intensity = GetCurrentAbnormalWeatherIntensity();
     }
+    // Normal weather conditions
     else
     {
-        if (FuncIsActiveTask(Task_DoAbnormalWeather))
-            DestroyTask(FindTaskIdByFunc(Task_DoAbnormalWeather));
-        sCurrentAbnormalWeather = WEATHER_DOWNPOUR;
+        TryDestroyAbnormalWeatherTask();
+        intensity = GetSavedWeatherIntensity();  // Get intensity from save block 1
     }
+
+    // Set weather and intensity
+    SetCurrentAndNextWeatherIntensity(intensity);
     SetCurrentAndNextWeather(weather);
 }
 
@@ -2583,7 +2514,7 @@ static const u8 sWeatherCycleRoute119[WEATHER_CYCLE_LENGTH] =
 {
     WEATHER_SUNNY,
     WEATHER_RAIN,
-    WEATHER_RAIN_THUNDERSTORM,
+    WEATHER_RAIN,
     WEATHER_RAIN,
 };
 static const u8 sWeatherCycleRoute123[WEATHER_CYCLE_LENGTH] =
@@ -2594,6 +2525,7 @@ static const u8 sWeatherCycleRoute123[WEATHER_CYCLE_LENGTH] =
     WEATHER_SUNNY,
 };
 
+// TODO: after removing cycling weather this can be a simple if (weather > LAST_WEATHER_ID) else WEATHER_NONE statement
 static u8 TranslateWeatherNum(u8 weather)
 {
     switch (weather)
@@ -2603,15 +2535,12 @@ static u8 TranslateWeatherNum(u8 weather)
     case WEATHER_SUNNY:              return WEATHER_SUNNY;
     case WEATHER_RAIN:               return WEATHER_RAIN;
     case WEATHER_SNOW:               return WEATHER_SNOW;
-    case WEATHER_RAIN_THUNDERSTORM:  return WEATHER_RAIN_THUNDERSTORM;
     case WEATHER_FOG_HORIZONTAL:     return WEATHER_FOG_HORIZONTAL;
     case WEATHER_VOLCANIC_ASH:       return WEATHER_VOLCANIC_ASH;
     case WEATHER_SANDSTORM:          return WEATHER_SANDSTORM;
     case WEATHER_FOG_DIAGONAL:       return WEATHER_FOG_DIAGONAL;
     case WEATHER_UNDERWATER:         return WEATHER_UNDERWATER;
-    case WEATHER_SHADE:              return WEATHER_SHADE;
     case WEATHER_DROUGHT:            return WEATHER_DROUGHT;
-    case WEATHER_DOWNPOUR:           return WEATHER_DOWNPOUR;
     case WEATHER_UNDERWATER_BUBBLES: return WEATHER_UNDERWATER_BUBBLES;
     case WEATHER_ABNORMAL:           return WEATHER_ABNORMAL;
     case WEATHER_ROUTE119_CYCLE:     return sWeatherCycleRoute119[gSaveBlock1Ptr->weatherCycleStage];
@@ -2629,8 +2558,7 @@ void UpdateWeatherPerDay(u16 increment)
 
 static void UpdateRainCounter(u8 newWeather, u8 oldWeather)
 {
-    if (newWeather != oldWeather
-     && (newWeather == WEATHER_RAIN || newWeather == WEATHER_RAIN_THUNDERSTORM))
+    if (newWeather != oldWeather && newWeather == WEATHER_RAIN)
         IncrementGameStat(GAME_STAT_GOT_RAINED_ON);
 }
 

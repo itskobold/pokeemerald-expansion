@@ -271,7 +271,8 @@ string generate_map_events_text(Json map_data) {
                      << json_to_string(coord_event, "x") << ", "
                      << json_to_string(coord_event, "y") << ", "
                      << json_to_string(coord_event, "elevation") << ", "
-                     << json_to_string(coord_event, "weather") << "\n";
+                     << json_to_string(coord_event, "weather") << ", "
+                     << json_to_string(coord_event, "intensity") << "\n";
             } else {
                 FATAL_ERROR("Unknown coord event type '%s'. Expected 'trigger' or 'weather'.\n", type.c_str());
             }

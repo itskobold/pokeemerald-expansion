@@ -1305,10 +1305,10 @@
 	@ Queues a weather change to type weather.
 	.macro setweather type:req
 	.byte 0xa4
-	.2byte \type
+	.byte \type
 	.endm
 
-	@ Executes the weather change queued with resetweather or setweather. The current weather will smoothly fade into the queued weather.
+	@ Executes the weather change queued with resetweather, setweather or setweatherintensity. The current weather will smoothly fade into the queued weather.
 	.macro doweather
 	.byte 0xa5
 	.endm
@@ -1548,10 +1548,10 @@
 	.2byte \box
 	.endm
 
-	@ Used only in FireRed/LeafGreen, does nothing in Emerald.
-	.macro textcolor color:req
+	@ Queues a weather intensity change.
+	.macro setweatherintensity intensity:req
 	.byte 0xc7
-	.byte \color
+	.byte \intensity
 	.endm
 
 	@ Used only in FireRed/LeafGreen, does nothing in Emerald.

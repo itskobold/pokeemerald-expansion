@@ -80,6 +80,7 @@ enum { // Util
     DEBUG_UTIL_MENU_ITEM_POISON_MONS,
     DEBUG_UTIL_MENU_ITEM_SAVEBLOCK,
     DEBUG_UTIL_MENU_ITEM_WEATHER,
+    DEBUG_UTIL_MENU_ITEM_WEATHER_INTENSITY,
     DEBUG_UTIL_MENU_ITEM_CHECKWALLCLOCK,
     DEBUG_UTIL_MENU_ITEM_SETWALLCLOCK,
     DEBUG_UTIL_MENU_ITEM_WATCHCREDITS,
@@ -219,7 +220,9 @@ static void DebugAction_Util_RunningShoes(u8 taskId);
 static void DebugAction_Util_PoisonMons(u8 taskId);
 static void DebugAction_Util_CheckSaveBlock(u8 taskId);
 static void DebugAction_Util_Weather(u8 taskId);
+static void DebugAction_Util_WeatherIntensity(u8 taskId);
 static void DebugAction_Util_Weather_SelectId(u8 taskId);
+static void DebugAction_Util_WeatherIntensity_SelectId(u8 taskId);
 static void DebugAction_Util_CheckWallClock(u8 taskId);
 static void DebugAction_Util_SetWallClock(u8 taskId);
 static void DebugAction_Util_WatchCredits(u8 taskId);
@@ -327,7 +330,9 @@ static const u8 sDebugText_Util_RunningShoes[] =             _("Toggle Running S
 static const u8 sDebugText_Util_PoisonMons[] =               _("Poison all mons");
 static const u8 sDebugText_Util_SaveBlockSpace[] =           _("SaveBlock Space");
 static const u8 sDebugText_Util_Weather[] =                  _("Set weather");
+static const u8 sDebugText_Util_WeatherIntensity[] =         _("Set wthr intensity");
 static const u8 sDebugText_Util_Weather_ID[] =               _("Weather Id: {STR_VAR_3}\n{STR_VAR_1}\n{STR_VAR_2}");
+static const u8 sDebugText_Util_Weather_Intensity[] =        _("Wthr intensity: {STR_VAR_3}\n{STR_VAR_1}\n{STR_VAR_2}");
 static const u8 sDebugText_Util_CheckWallClock[] =           _("Check Wall Clock");
 static const u8 sDebugText_Util_SetWallClock[] =             _("Set Wall Clock");
 static const u8 sDebugText_Util_WatchCredits[] =             _("Watch Credits");
@@ -443,20 +448,21 @@ static const struct ListMenuItem sDebugMenu_Items_Main[] =
 };
 static const struct ListMenuItem sDebugMenu_Items_Utilities[] =
 {
-    [DEBUG_UTIL_MENU_ITEM_HEAL_PARTY]     = {sDebugText_Util_HealParty,      DEBUG_UTIL_MENU_ITEM_HEAL_PARTY},
-    [DEBUG_UTIL_MENU_ITEM_FLY]            = {sDebugText_Util_Fly,            DEBUG_UTIL_MENU_ITEM_FLY},
-    [DEBUG_UTIL_MENU_ITEM_WARP]           = {sDebugText_Util_WarpToMap,      DEBUG_UTIL_MENU_ITEM_WARP},
-    [DEBUG_UTIL_MENU_ITEM_RUNNING_SHOES]  = {sDebugText_Util_RunningShoes,   DEBUG_UTIL_MENU_ITEM_RUNNING_SHOES},
-    [DEBUG_UTIL_MENU_ITEM_POISON_MONS]    = {sDebugText_Util_PoisonMons,     DEBUG_UTIL_MENU_ITEM_POISON_MONS},
-    [DEBUG_UTIL_MENU_ITEM_SAVEBLOCK]      = {sDebugText_Util_SaveBlockSpace, DEBUG_UTIL_MENU_ITEM_SAVEBLOCK},
-    [DEBUG_UTIL_MENU_ITEM_WEATHER]        = {sDebugText_Util_Weather,        DEBUG_UTIL_MENU_ITEM_WEATHER},
-    [DEBUG_UTIL_MENU_ITEM_CHECKWALLCLOCK] = {sDebugText_Util_CheckWallClock, DEBUG_UTIL_MENU_ITEM_CHECKWALLCLOCK},
-    [DEBUG_UTIL_MENU_ITEM_SETWALLCLOCK]   = {sDebugText_Util_SetWallClock,   DEBUG_UTIL_MENU_ITEM_SETWALLCLOCK},
-    [DEBUG_UTIL_MENU_ITEM_WATCHCREDITS]   = {sDebugText_Util_WatchCredits,   DEBUG_UTIL_MENU_ITEM_WATCHCREDITS},
-    [DEBUG_UTIL_MENU_ITEM_TRAINER_NAME]   = {sDebugText_Util_Trainer_Name,   DEBUG_UTIL_MENU_ITEM_TRAINER_NAME},
-    [DEBUG_UTIL_MENU_ITEM_TRAINER_GENDER] = {sDebugText_Util_Trainer_Gender, DEBUG_UTIL_MENU_ITEM_TRAINER_GENDER},
-    [DEBUG_UTIL_MENU_ITEM_TRAINER_ID]     = {sDebugText_Util_Trainer_Id,     DEBUG_UTIL_MENU_ITEM_TRAINER_ID},
-    [DEBUG_UTIL_MENU_ITEM_CLEAR_BOXES]    = {sDebugText_Util_Clear_Boxes,    DEBUG_UTIL_MENU_ITEM_CLEAR_BOXES},
+    [DEBUG_UTIL_MENU_ITEM_HEAL_PARTY]        = {sDebugText_Util_HealParty,        DEBUG_UTIL_MENU_ITEM_HEAL_PARTY},
+    [DEBUG_UTIL_MENU_ITEM_FLY]               = {sDebugText_Util_Fly,              DEBUG_UTIL_MENU_ITEM_FLY},
+    [DEBUG_UTIL_MENU_ITEM_WARP]              = {sDebugText_Util_WarpToMap,        DEBUG_UTIL_MENU_ITEM_WARP},
+    [DEBUG_UTIL_MENU_ITEM_RUNNING_SHOES]     = {sDebugText_Util_RunningShoes,     DEBUG_UTIL_MENU_ITEM_RUNNING_SHOES},
+    [DEBUG_UTIL_MENU_ITEM_POISON_MONS]       = {sDebugText_Util_PoisonMons,       DEBUG_UTIL_MENU_ITEM_POISON_MONS},
+    [DEBUG_UTIL_MENU_ITEM_SAVEBLOCK]         = {sDebugText_Util_SaveBlockSpace,   DEBUG_UTIL_MENU_ITEM_SAVEBLOCK},
+    [DEBUG_UTIL_MENU_ITEM_WEATHER]           = {sDebugText_Util_Weather,          DEBUG_UTIL_MENU_ITEM_WEATHER},
+    [DEBUG_UTIL_MENU_ITEM_WEATHER_INTENSITY] = {sDebugText_Util_WeatherIntensity, DEBUG_UTIL_MENU_ITEM_WEATHER_INTENSITY},
+    [DEBUG_UTIL_MENU_ITEM_CHECKWALLCLOCK]    = {sDebugText_Util_CheckWallClock,   DEBUG_UTIL_MENU_ITEM_CHECKWALLCLOCK},
+    [DEBUG_UTIL_MENU_ITEM_SETWALLCLOCK]      = {sDebugText_Util_SetWallClock,     DEBUG_UTIL_MENU_ITEM_SETWALLCLOCK},
+    [DEBUG_UTIL_MENU_ITEM_WATCHCREDITS]      = {sDebugText_Util_WatchCredits,     DEBUG_UTIL_MENU_ITEM_WATCHCREDITS},
+    [DEBUG_UTIL_MENU_ITEM_TRAINER_NAME]      = {sDebugText_Util_Trainer_Name,     DEBUG_UTIL_MENU_ITEM_TRAINER_NAME},
+    [DEBUG_UTIL_MENU_ITEM_TRAINER_GENDER]    = {sDebugText_Util_Trainer_Gender,   DEBUG_UTIL_MENU_ITEM_TRAINER_GENDER},
+    [DEBUG_UTIL_MENU_ITEM_TRAINER_ID]        = {sDebugText_Util_Trainer_Id,       DEBUG_UTIL_MENU_ITEM_TRAINER_ID},
+    [DEBUG_UTIL_MENU_ITEM_CLEAR_BOXES]       = {sDebugText_Util_Clear_Boxes,      DEBUG_UTIL_MENU_ITEM_CLEAR_BOXES},
 };
 static const struct ListMenuItem sDebugMenu_Items_Scripts[] =
 {
@@ -523,20 +529,21 @@ static void (*const sDebugMenu_Actions_Main[])(u8) =
 };
 static void (*const sDebugMenu_Actions_Utilities[])(u8) =
 {
-    [DEBUG_UTIL_MENU_ITEM_HEAL_PARTY]     = DebugAction_Util_HealParty,
-    [DEBUG_UTIL_MENU_ITEM_FLY]            = DebugAction_Util_Fly,
-    [DEBUG_UTIL_MENU_ITEM_WARP]           = DebugAction_Util_Warp_Warp,
-    [DEBUG_UTIL_MENU_ITEM_RUNNING_SHOES]  = DebugAction_Util_RunningShoes,
-    [DEBUG_UTIL_MENU_ITEM_POISON_MONS]    = DebugAction_Util_PoisonMons,
-    [DEBUG_UTIL_MENU_ITEM_SAVEBLOCK]      = DebugAction_Util_CheckSaveBlock,
-    [DEBUG_UTIL_MENU_ITEM_WEATHER]        = DebugAction_Util_Weather,
-    [DEBUG_UTIL_MENU_ITEM_CHECKWALLCLOCK] = DebugAction_Util_CheckWallClock,
-    [DEBUG_UTIL_MENU_ITEM_SETWALLCLOCK]   = DebugAction_Util_SetWallClock,
-    [DEBUG_UTIL_MENU_ITEM_WATCHCREDITS]   = DebugAction_Util_WatchCredits,
-    [DEBUG_UTIL_MENU_ITEM_TRAINER_NAME]   = DebugAction_Util_Trainer_Name,
-    [DEBUG_UTIL_MENU_ITEM_TRAINER_GENDER] = DebugAction_Util_Trainer_Gender,
-    [DEBUG_UTIL_MENU_ITEM_TRAINER_ID]     = DebugAction_Util_Trainer_Id,
-    [DEBUG_UTIL_MENU_ITEM_CLEAR_BOXES]    = DebugAction_Util_Clear_Boxes,
+    [DEBUG_UTIL_MENU_ITEM_HEAL_PARTY]        = DebugAction_Util_HealParty,
+    [DEBUG_UTIL_MENU_ITEM_FLY]               = DebugAction_Util_Fly,
+    [DEBUG_UTIL_MENU_ITEM_WARP]              = DebugAction_Util_Warp_Warp,
+    [DEBUG_UTIL_MENU_ITEM_RUNNING_SHOES]     = DebugAction_Util_RunningShoes,
+    [DEBUG_UTIL_MENU_ITEM_POISON_MONS]       = DebugAction_Util_PoisonMons,
+    [DEBUG_UTIL_MENU_ITEM_SAVEBLOCK]         = DebugAction_Util_CheckSaveBlock,
+    [DEBUG_UTIL_MENU_ITEM_WEATHER]           = DebugAction_Util_Weather,
+    [DEBUG_UTIL_MENU_ITEM_WEATHER_INTENSITY] = DebugAction_Util_WeatherIntensity,
+    [DEBUG_UTIL_MENU_ITEM_CHECKWALLCLOCK]    = DebugAction_Util_CheckWallClock,
+    [DEBUG_UTIL_MENU_ITEM_SETWALLCLOCK]      = DebugAction_Util_SetWallClock,
+    [DEBUG_UTIL_MENU_ITEM_WATCHCREDITS]      = DebugAction_Util_WatchCredits,
+    [DEBUG_UTIL_MENU_ITEM_TRAINER_NAME]      = DebugAction_Util_Trainer_Name,
+    [DEBUG_UTIL_MENU_ITEM_TRAINER_GENDER]    = DebugAction_Util_Trainer_Gender,
+    [DEBUG_UTIL_MENU_ITEM_TRAINER_ID]        = DebugAction_Util_Trainer_Id,
+    [DEBUG_UTIL_MENU_ITEM_CLEAR_BOXES]       = DebugAction_Util_Clear_Boxes,
 };
 static void (*const sDebugMenu_Actions_Scripts[])(u8) =
 {
@@ -1204,19 +1211,22 @@ static const u8 sWeatherNames[22][24] = {
     [WEATHER_SUNNY]              = _("SUNNY"),
     [WEATHER_RAIN]               = _("RAIN"),
     [WEATHER_SNOW]               = _("SNOW"),
-    [WEATHER_RAIN_THUNDERSTORM]  = _("RAIN THUNDERSTORM"),
     [WEATHER_FOG_HORIZONTAL]     = _("FOG HORIZONTAL"),
     [WEATHER_VOLCANIC_ASH]       = _("VOLCANIC ASH"),
     [WEATHER_SANDSTORM]          = _("SANDSTORM"),
     [WEATHER_FOG_DIAGONAL]       = _("FOG DIAGONAL"),
     [WEATHER_UNDERWATER]         = _("UNDERWATER"),
-    [WEATHER_SHADE]              = _("SHADE"),
     [WEATHER_DROUGHT]            = _("DROUGHT"),
-    [WEATHER_DOWNPOUR]           = _("DOWNPOUR"),
     [WEATHER_UNDERWATER_BUBBLES] = _("UNDERWATER BUBBLES"),
-    [WEATHER_ABNORMAL]           = _("ABNORMAL(NOT WORKING)"),
+    [WEATHER_ABNORMAL]           = _("ABNORMAL"),
     [WEATHER_ROUTE119_CYCLE]     = _("ROUTE119 CYCLE"),
     [WEATHER_ROUTE123_CYCLE]     = _("ROUTE123 CYCLE"),
+};
+static const u8 sWeatherIntensityNames[5][10] = {
+    [WTHR_INTENSITY_LOW] = _("LOW"),
+    [WTHR_INTENSITY_MILD] = _("MILD"),
+    [WTHR_INTENSITY_STRONG] = _("STRONG"),
+    [WTHR_INTENSITY_EXTREME] = _("EXTREME"),
 };
 static const u8 sText_WeatherNotDefined[] = _("NOT DEFINED!!!");
 static void DebugAction_Util_Weather(u8 taskId)
@@ -1241,6 +1251,32 @@ static void DebugAction_Util_Weather(u8 taskId)
     AddTextPrinterParameterized(windowId, 1, gStringVar4, 1, 1, 0, NULL);
 
     gTasks[taskId].func = DebugAction_Util_Weather_SelectId;
+    gTasks[taskId].data[2] = windowId;
+    gTasks[taskId].data[3] = 0;            //Current ID
+    gTasks[taskId].data[4] = 0;            //Digit Selected
+}
+static void DebugAction_Util_WeatherIntensity(u8 taskId)
+{
+    u8 windowId;
+
+    ClearStdWindowAndFrame(gTasks[taskId].data[1], TRUE);
+    RemoveWindow(gTasks[taskId].data[1]);
+
+    HideMapNamePopUpWindow();
+    LoadMessageBoxAndBorderGfx();
+    windowId = AddWindow(&sDebugNumberDisplayMediumWindowTemplate);
+    DrawStdWindowFrame(windowId, FALSE);
+
+    CopyWindowToVram(windowId, 3);
+
+    //Display initial ID
+    StringCopy(gStringVar2, gText_DigitIndicator[0]);
+    ConvertIntToDecimalStringN(gStringVar3, 1, STR_CONV_MODE_LEADING_ZEROS, 2);
+    StringCopyPadded(gStringVar1, sWeatherIntensityNames[0], CHAR_SPACE, 30);
+    StringExpandPlaceholders(gStringVar4, sDebugText_Util_Weather_Intensity);
+    AddTextPrinterParameterized(windowId, 1, gStringVar4, 1, 1, 0, NULL);
+
+    gTasks[taskId].func = DebugAction_Util_WeatherIntensity_SelectId;
     gTasks[taskId].data[2] = windowId;
     gTasks[taskId].data[3] = 0;            //Current ID
     gTasks[taskId].data[4] = 0;            //Digit Selected
@@ -1288,10 +1324,65 @@ static void DebugAction_Util_Weather_SelectId(u8 taskId)
 
     if (JOY_NEW(A_BUTTON))
     {
-        if (gTasks[taskId].data[3] <= 14 || gTasks[taskId].data[3] >= 20)
+        if (gTasks[taskId].data[3] <= WEATHER_ABNORMAL || gTasks[taskId].data[3] >= WEATHER_ROUTE119_CYCLE)
         {
             gTasks[taskId].data[5] = gTasks[taskId].data[3];
             SetWeather(gTasks[taskId].data[5]);
+        }
+    }
+    else if (JOY_NEW(B_BUTTON))
+    {
+        PlaySE(SE_SELECT);
+        DebugAction_DestroyExtraWindow(taskId);
+    }
+}
+static void DebugAction_Util_WeatherIntensity_SelectId(u8 taskId)
+{
+    if (JOY_NEW(DPAD_ANY))
+    {
+        PlaySE(SE_SELECT);
+
+        if (JOY_NEW(DPAD_UP))
+        {
+            gTasks[taskId].data[3] += sPowersOfTen[gTasks[taskId].data[4]];
+            if (gTasks[taskId].data[3] > WTHR_INTENSITY_EXTREME)
+                gTasks[taskId].data[3] = WTHR_INTENSITY_EXTREME;
+        }
+        if (JOY_NEW(DPAD_DOWN))
+        {
+            gTasks[taskId].data[3] -= sPowersOfTen[gTasks[taskId].data[4]];
+            if (gTasks[taskId].data[3] < WTHR_INTENSITY_LOW)
+                gTasks[taskId].data[3] = WTHR_INTENSITY_LOW;
+        }
+        if (JOY_NEW(DPAD_LEFT))
+        {
+            if (gTasks[taskId].data[4] > 0)
+                gTasks[taskId].data[4] -= 1;
+        }
+        if (JOY_NEW(DPAD_RIGHT))
+        {
+            if (gTasks[taskId].data[4] < 2)
+                gTasks[taskId].data[4] += 1;
+        }
+
+        StringCopy(gStringVar2, gText_DigitIndicator[gTasks[taskId].data[4]]);
+        ConvertIntToDecimalStringN(gStringVar3, gTasks[taskId].data[3], STR_CONV_MODE_LEADING_ZEROS, 2);
+
+        if (gTasks[taskId].data[3] <= WTHR_INTENSITY_EXTREME)
+            StringCopyPadded(gStringVar1, sWeatherIntensityNames[gTasks[taskId].data[3]], CHAR_SPACE, 30);
+        else
+            StringCopyPadded(gStringVar1, sText_WeatherNotDefined, CHAR_SPACE, 30);
+
+        StringExpandPlaceholders(gStringVar4, sDebugText_Util_Weather_Intensity);
+        AddTextPrinterParameterized(gTasks[taskId].data[2], 1, gStringVar4, 1, 1, 0, NULL);
+    }
+
+    if (JOY_NEW(A_BUTTON))
+    {
+        if (gTasks[taskId].data[3] <= 14 || gTasks[taskId].data[3] >= 20)
+        {
+            gTasks[taskId].data[5] = gTasks[taskId].data[3];
+            SetWeatherIntensity(gTasks[taskId].data[5]);
         }
     }
     else if (JOY_NEW(B_BUTTON))
@@ -3537,6 +3628,8 @@ static void DebugAction_Sound_MUS_SelectId(u8 taskId)
     X(SE_PIKE_CURTAIN_CLOSE) \
     X(SE_PIKE_CURTAIN_OPEN) \
     X(SE_SUDOWOODO_SHAKE) \
+    X(SE_LIGHT_RAIN) \
+    X(SE_LIGHT_RAIN_STOP) \
 
 // Create BGM list
 #define X(songId) static const u8 sBGMName_##songId[] = _(#songId);

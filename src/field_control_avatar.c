@@ -35,6 +35,7 @@
 #include "constants/map_types.h"
 #include "constants/songs.h"
 #include "constants/trainer_hill.h"
+#include "constants/weather.h"
 
 static EWRAM_DATA u8 sWildEncounterImmunitySteps = 0;
 static EWRAM_DATA u16 sPrevMetatileBehavior = 0;
@@ -903,9 +904,15 @@ static const u8 *TryRunCoordEventScript(const struct CoordEvent *coordEvent)
 {
     if (coordEvent != NULL)
     {
+        // Weather trigger
         if (coordEvent->script == NULL)
         {
-            DoCoordEventWeather(coordEvent->trigger);
+            u8 weather = coordEvent->trigger;
+            u8 weatherIntensity = coordEvent->index;
+            if (weather != WEATHER_NO_CHANGE)
+                DoCoordEventWeather(weather);
+            if (weatherIntensity != WTHR_INTENSITY_NO_CHANGE)
+                DoCoordEventWeatherIntensity(weatherIntensity);
             return NULL;
         }
         if (coordEvent->trigger == TRIGGER_RUN_IMMEDIATELY)
