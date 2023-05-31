@@ -129,7 +129,6 @@ SECTIONS {
         src/scrcmd.o(.text);
         src/field_control_avatar.o(.text);
         src/event_data.o(.text);
-        src/coord_event_weather.o(.text);
         src/field_tasks.o(.text);
         src/clock.o(.text);
         src/reset_rtc_screen.o(.text);
@@ -515,7 +514,6 @@ SECTIONS {
         src/text_window.o(.rodata);
         src/scrcmd.o(.rodata);
         src/field_control_avatar.o(.rodata);
-        src/coord_event_weather.o(.rodata);
         src/field_tasks.o(.rodata);
         src/reset_rtc_screen.o(.rodata);
         src/start_menu.o(.rodata);

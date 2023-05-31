@@ -168,7 +168,8 @@ AbnormalWeather_StartKyogreWeather::
 	return
 
 AbnormalWeather_StartGroudonWeather::
-	setweather WEATHER_DROUGHT
+	setweather WEATHER_SUNNY
+	setweatherintensity WTHR_INTENSITY_EXTREME
 	return
 
 AbnormalWeather_EventScript_EndEventAndCleanup_1::

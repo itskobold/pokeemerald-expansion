@@ -250,129 +250,51 @@ static void SetNormalWeatherColorMap(void)
 }
 
 //------------------------------------------------------------------------------
-// WEATHER_DROUGHT
+// WEATHER_SUNNY
 //------------------------------------------------------------------------------
 
-static void UpdateDroughtBlend(u8);
+static void SetSunnyWeatherColorMap(void);
 
-void Drought_InitVars(void)
+void Sunny_InitVars(void)
 {
-    gWeatherPtr->initStep = 0;
-    gWeatherPtr->weatherGfxLoaded = FALSE;
-    gWeatherPtr->targetColorMapIndex = 0;
-    gWeatherPtr->colorMapStepDelay = 0;
+    SetSunnyWeatherColorMap();
+    gWeatherPtr->weatherGfxLoaded = TRUE;
 }
 
-void Drought_InitAll(void)
+void Sunny_InitAll(void)
 {
-    Drought_InitVars();
-    while (gWeatherPtr->weatherGfxLoaded == FALSE)
-        Drought_Main();
+    Sunny_InitVars();
 }
 
-void Drought_Main(void)
+void Sunny_Intensity(void)
 {
-    switch (gWeatherPtr->initStep)
+    if (gWeatherPtr->palProcessingState != WEATHER_PAL_STATE_SCREEN_FADING_OUT)
     {
-    case 0:
-        if (gWeatherPtr->palProcessingState != WEATHER_PAL_STATE_CHANGING_WEATHER)
-            gWeatherPtr->initStep++;
-        break;
-    case 1:
-        ResetDroughtWeatherPaletteLoading();
-        gWeatherPtr->initStep++;
-        break;
-    case 2:
-        if (LoadDroughtWeatherPalettes() == FALSE)
-            gWeatherPtr->initStep++;
-        break;
-    case 3:
-        DroughtStateInit();
-        gWeatherPtr->initStep++;
-        break;
-    case 4:
-        DroughtStateRun();
-        if (gWeatherPtr->droughtBrightnessStage == 6)
-        {
-            gWeatherPtr->weatherGfxLoaded = TRUE;
-            gWeatherPtr->initStep++;
-        }
-        break;
-    default:
-        DroughtStateRun();
-        break;
+        SetSunnyWeatherColorMap();
+        gWeatherPtr->colorMapStepCounter = 0;
+        gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_CHANGING_WEATHER;
     }
 }
 
-bool8 Drought_Finish(void)
+void Sunny_Main(void)
 {
+}
+
+bool8 Sunny_Finish(void)
+{
+    gWeatherPtr->weatherGfxLoaded = FALSE;
     return FALSE;
 }
 
-void StartDroughtWeatherBlend(void)
+static void SetSunnyWeatherColorMap(void)
 {
-    CreateTask(UpdateDroughtBlend, 80);
+    // Strong & extreme intensity are extra bright
+    if (gWeatherPtr->nextIntensity >= WTHR_INTENSITY_STRONG)
+        gWeatherPtr->targetColorMapIndex = -6;
+    else
+        gWeatherPtr->targetColorMapIndex = -3;
+    gWeatherPtr->colorMapStepDelay = 20;
 }
-
-#define tState      data[0]
-#define tBlendY     data[1]
-#define tBlendDelay data[2]
-#define tWinRange   data[3]
-
-static void UpdateDroughtBlend(u8 taskId)
-{
-    struct Task *task = &gTasks[taskId];
-
-    switch (task->tState)
-    {
-    case 0:
-        task->tBlendY = 0;
-        task->tBlendDelay = 0;
-        task->tWinRange = REG_WININ;
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_ALL | WININ_WIN1_ALL);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BG3 | BLDCNT_TGT1_OBJ | BLDCNT_EFFECT_LIGHTEN);
-        SetGpuReg(REG_OFFSET_BLDY, 0);
-        task->tState++;
-        // fall through
-    case 1:
-        task->tBlendY += 3;
-        if (task->tBlendY > 16)
-            task->tBlendY = 16;
-        SetGpuReg(REG_OFFSET_BLDY, task->tBlendY);
-        if (task->tBlendY >= 16)
-            task->tState++;
-        break;
-    case 2:
-        task->tBlendDelay++;
-        if (task->tBlendDelay > 9)
-        {
-            task->tBlendDelay = 0;
-            task->tBlendY--;
-            if (task->tBlendY <= 0)
-            {
-                task->tBlendY = 0;
-                task->tState++;
-            }
-            SetGpuReg(REG_OFFSET_BLDY, task->tBlendY);
-        }
-        break;
-    case 3:
-        SetGpuReg(REG_OFFSET_BLDCNT, 0);
-        SetGpuReg(REG_OFFSET_BLDY, 0);
-        SetGpuReg(REG_OFFSET_WININ, task->tWinRange);
-        task->tState++;
-        break;
-    case 4:
-        ScriptContext_Enable();
-        DestroyTask(taskId);
-        break;
-    }
-}
-
-#undef tState
-#undef tBlendY
-#undef tBlendDelay
-#undef tWinRange
 
 //------------------------------------------------------------------------------
 // WEATHER_RAIN
@@ -2381,8 +2303,8 @@ static void Task_DoAbnormalWeather(u8 taskId)
         if (tState == 0)
         {
             SetNextWeatherIntensity(WTHR_INTENSITY_EXTREME);
-            SetNextWeather(WEATHER_DROUGHT);
-            gWeatherPtr->nextAbnormalWeather = WEATHER_DROUGHT;
+            SetNextWeather(WEATHER_SUNNY);
+            gWeatherPtr->nextAbnormalWeather = WEATHER_SUNNY;
             tDelay = 600;
             tState = 1;
         }
@@ -2412,13 +2334,12 @@ static void CreateAbnormalWeatherTask(bool8 initDelay)
 #undef tState
 #undef tDelay
 
-static u8 TranslateWeatherNum(u8);
 static void UpdateRainCounter(u8, u8);
 
 void SetSavedWeather(u8 weather)
 {
     u8 oldWeather = gSaveBlock1Ptr->weather;
-    gSaveBlock1Ptr->weather = TranslateWeatherNum(weather);
+    gSaveBlock1Ptr->weather = weather;
     UpdateRainCounter(gSaveBlock1Ptr->weather, oldWeather);
 }
 
@@ -2450,7 +2371,7 @@ u8 GetCurrentAbnormalWeatherIntensity(void)
 void SetSavedWeatherFromCurrMapHeader(void)
 {
     u8 oldWeather = gSaveBlock1Ptr->weather;
-    gSaveBlock1Ptr->weather = TranslateWeatherNum(gMapHeader.weather);
+    gSaveBlock1Ptr->weather = gMapHeader.weather;
     UpdateRainCounter(gSaveBlock1Ptr->weather, oldWeather);
 }
 
@@ -2533,54 +2454,6 @@ void ResumePausedWeather(void)
     // Set weather and intensity
     SetCurrentAndNextWeatherIntensity(intensity);
     SetCurrentAndNextWeather(weather);
-}
-
-#define WEATHER_CYCLE_LENGTH  4
-
-static const u8 sWeatherCycleRoute119[WEATHER_CYCLE_LENGTH] =
-{
-    WEATHER_NORMAL,
-    WEATHER_RAIN,
-    WEATHER_RAIN,
-    WEATHER_RAIN,
-};
-static const u8 sWeatherCycleRoute123[WEATHER_CYCLE_LENGTH] =
-{
-    WEATHER_NORMAL,
-    WEATHER_NORMAL,
-    WEATHER_RAIN,
-    WEATHER_NORMAL,
-};
-
-// TODO: after removing cycling weather this can be a simple if (weather > LAST_WEATHER_ID) else WEATHER_NONE statement
-static u8 TranslateWeatherNum(u8 weather)
-{
-    switch (weather)
-    {
-    case WEATHER_NONE:               return WEATHER_NONE;
-    case WEATHER_SUNNY_CLOUDS:       return WEATHER_SUNNY_CLOUDS;
-    case WEATHER_NORMAL:             return WEATHER_NORMAL;
-    case WEATHER_RAIN:               return WEATHER_RAIN;
-    case WEATHER_SNOW:               return WEATHER_SNOW;
-    case WEATHER_FOG_HORIZONTAL:     return WEATHER_FOG_HORIZONTAL;
-    case WEATHER_VOLCANIC_ASH:       return WEATHER_VOLCANIC_ASH;
-    case WEATHER_SANDSTORM:          return WEATHER_SANDSTORM;
-    case WEATHER_FOG_DIAGONAL:       return WEATHER_FOG_DIAGONAL;
-    case WEATHER_UNDERWATER:         return WEATHER_UNDERWATER;
-    case WEATHER_DROUGHT:            return WEATHER_DROUGHT;
-    case WEATHER_UNDERWATER_BUBBLES: return WEATHER_UNDERWATER_BUBBLES;
-    case WEATHER_ABNORMAL:           return WEATHER_ABNORMAL;
-    case WEATHER_ROUTE119_CYCLE:     return sWeatherCycleRoute119[gSaveBlock1Ptr->weatherCycleStage];
-    case WEATHER_ROUTE123_CYCLE:     return sWeatherCycleRoute123[gSaveBlock1Ptr->weatherCycleStage];
-    default:                         return WEATHER_NONE;
-    }
-}
-
-void UpdateWeatherPerDay(u16 increment)
-{
-    u16 weatherStage = gSaveBlock1Ptr->weatherCycleStage + increment;
-    weatherStage %= WEATHER_CYCLE_LENGTH;
-    gSaveBlock1Ptr->weatherCycleStage = weatherStage;
 }
 
 static void UpdateRainCounter(u8 newWeather, u8 oldWeather)

@@ -1523,18 +1523,6 @@ bool8 FoundBlackGlasses(void)
     return FlagGet(FLAG_HIDDEN_ITEM_ROUTE_116_BLACK_GLASSES);
 }
 
-void SetRoute119Weather(void)
-{
-    if (IsMapTypeOutdoors(GetLastUsedWarpMapType()) != TRUE)
-        SetSavedWeather(WEATHER_ROUTE119_CYCLE);
-}
-
-void SetRoute123Weather(void)
-{
-    if (IsMapTypeOutdoors(GetLastUsedWarpMapType()) != TRUE)
-        SetSavedWeather(WEATHER_ROUTE123_CYCLE);
-}
-
 u8 GetLeadMonIndex(void)
 {
     u8 i;

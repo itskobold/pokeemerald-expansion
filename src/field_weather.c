@@ -17,7 +17,7 @@
 #include "trig.h"
 #include "gpu_regs.h"
 
-#define DROUGHT_COLOR_INDEX(color) ((((color) >> 1) & 0xF) | (((color) >> 2) & 0xF0) | (((color) >> 3) & 0xF00))
+#define SUNNY_COLOR_INDEX(color) ((((color) >> 1) & 0xF) | (((color) >> 2) & 0xF0) | (((color) >> 3) & 0xF00))
 
 enum
 {
@@ -48,12 +48,12 @@ static void BuildColorMaps(void);
 static void UpdateWeatherColorMap(void);
 static void ApplyColorMap(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex);
 static void ApplyColorMapWithBlend(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex, u8 blendCoeff, u16 blendColor);
-static void ApplyDroughtColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u16 blendColor);
+static void ApplySunnyColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u16 blendColor);
 static void ApplyFogBlend(u8 blendCoeff, u16 blendColor);
 static void DoFadeInScreen_NoEffect(void);
 static bool8 FadeInScreen_Shade(void);
 static void DoFadeInScreen_Shade(void);
-static bool8 FadeInScreen_Drought(void);
+static bool8 FadeInScreen_Sunny(void);
 static bool8 FadeInScreen_FogHorizontal(void);
 static void FadeInScreenWithWeather(void);
 static void DoNothing(void);
@@ -68,15 +68,15 @@ EWRAM_DATA static u8 sFieldEffectPaletteColorMapTypes[32] = {0};
 
 static const u8 *sPaletteColorMapTypes;
 
-// The drought weather effect uses a precalculated color lookup table. Presumably this
+// The sunny weather effect uses a precalculated color lookup table. Presumably this
 // is because the underlying color shift calculation is slow.
-static const u16 sDroughtWeatherColors[][0x1000] = {
-    INCBIN_U16("graphics/weather/drought/colors_0.bin"),
-    INCBIN_U16("graphics/weather/drought/colors_1.bin"),
-    INCBIN_U16("graphics/weather/drought/colors_2.bin"),
-    INCBIN_U16("graphics/weather/drought/colors_3.bin"),
-    INCBIN_U16("graphics/weather/drought/colors_4.bin"),
-    INCBIN_U16("graphics/weather/drought/colors_5.bin"),
+static const u16 sSunnyWeatherColors[][0x1000] = {
+    INCBIN_U16("graphics/weather/sunny/colors_0.bin"),
+    INCBIN_U16("graphics/weather/sunny/colors_1.bin"),
+    INCBIN_U16("graphics/weather/sunny/colors_2.bin"),
+    INCBIN_U16("graphics/weather/sunny/colors_3.bin"),
+    INCBIN_U16("graphics/weather/sunny/colors_4.bin"),
+    INCBIN_U16("graphics/weather/sunny/colors_5.bin"),
 };
 
 // This is a pointer to gWeather. All code in this file accesses gWeather directly,
@@ -89,6 +89,7 @@ static const struct WeatherCallbacks sWeatherFuncs[] =
 {
     [WEATHER_NONE]               = {None_Init,              None_Main,        None_Main,          None_Init,             None_Finish},
     [WEATHER_SUNNY_CLOUDS]       = {Clouds_InitVars,        None_Main,        Clouds_Main,        Clouds_InitAll,        Clouds_Finish},
+    [WEATHER_SUNNY]              = {Sunny_InitVars,         Sunny_Intensity,  Sunny_Main,         Sunny_InitAll,         Sunny_Finish},
     [WEATHER_NORMAL]             = {Normal_InitVars,        Normal_Intensity, Normal_Main,        Normal_InitAll,        Normal_Finish},
     [WEATHER_RAIN]               = {Rain_InitVars,          Rain_Intensity,   Rain_Main,          Rain_InitAll,          Rain_Finish},
     [WEATHER_SNOW]               = {Snow_InitVars,          None_Main,        Snow_Main,          Snow_InitAll,          Snow_Finish},
@@ -96,8 +97,6 @@ static const struct WeatherCallbacks sWeatherFuncs[] =
     [WEATHER_VOLCANIC_ASH]       = {Ash_InitVars,           None_Main,        Ash_Main,           Ash_InitAll,           Ash_Finish},
     [WEATHER_SANDSTORM]          = {Sandstorm_InitVars,     None_Main,        Sandstorm_Main,     Sandstorm_InitAll,     Sandstorm_Finish},
     [WEATHER_FOG_DIAGONAL]       = {FogDiagonal_InitVars,   None_Main,        FogDiagonal_Main,   FogDiagonal_InitAll,   FogDiagonal_Finish},
-    [WEATHER_UNDERWATER]         = {FogHorizontal_InitVars, None_Main,        FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
-    [WEATHER_DROUGHT]            = {Drought_InitVars,       None_Main,        Drought_Main,       Drought_InitAll,       Drought_Finish},
     [WEATHER_UNDERWATER_BUBBLES] = {Bubbles_InitVars,       None_Main,        Bubbles_Main,       Bubbles_InitAll,       Bubbles_Finish},
 };
 
@@ -220,13 +219,25 @@ void SetNextWeatherIntensity(u8 intensity)
     gWeatherPtr->nextIntensity = intensity;
 }
 
+void DoCoordEventWeather(u8 weather)
+{
+    if (weather < WEATHER_NO_CHANGE)
+        SetWeather(weather);
+}
+
+void DoCoordEventWeatherIntensity(u8 intensity)
+{
+    if (intensity < WTHR_INTENSITY_NO_CHANGE)
+        SetWeatherIntensity(intensity);
+}
+
 // 50/50 chance of being strong rain or extreme sun
 static u8 GetRandomAbnormalWeather(void)
 {
     if (Random() % 2)
         return WEATHER_RAIN;
     else
-        return WEATHER_DROUGHT;
+        return WEATHER_SUNNY;
 }
 
 static void Task_WeatherInit(u8 taskId)
@@ -411,8 +422,8 @@ static void FadeInScreenWithWeather(void)
     case WEATHER_SNOW:
         DoFadeInScreen_Shade();
         break;
-    case WEATHER_DROUGHT:
-        if (FadeInScreen_Drought() == FALSE)
+    case WEATHER_SUNNY:
+        if (FadeInScreen_Sunny() == FALSE)
         {
             gWeatherPtr->colorMapIndex = -6;
             gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
@@ -428,7 +439,6 @@ static void FadeInScreenWithWeather(void)
     case WEATHER_VOLCANIC_ASH:
     case WEATHER_SANDSTORM:
     case WEATHER_FOG_DIAGONAL:
-    case WEATHER_UNDERWATER:
     default:
         DoFadeInScreen_NoEffect();
         break;
@@ -469,7 +479,7 @@ static void DoFadeInScreen_Shade(void)
     }
 }
 
-static bool8 FadeInScreen_Drought(void)
+static bool8 FadeInScreen_Sunny(void)
 {
     if (gWeatherPtr->fadeScreenCounter == 16)
         return FALSE;
@@ -481,7 +491,7 @@ static bool8 FadeInScreen_Drought(void)
         return FALSE;
     }
 
-    ApplyDroughtColorMapWithBlend(-6, 16 - gWeatherPtr->fadeScreenCounter, gWeatherPtr->fadeDestColor);
+    ApplySunnyColorMapWithBlend(-6, 16 - gWeatherPtr->fadeScreenCounter, gWeatherPtr->fadeDestColor);
     return TRUE;
 }
 
@@ -546,7 +556,7 @@ static void ApplyColorMap(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex)
     }
     else if (colorMapIndex < 0)
     {
-        // A negative gammIndex value means that the blending will come from the special Drought weather's palette tables.
+        // A negative gammIndex value means that the blending will come from the special sunny weather's palette tables.
         colorMapIndex = -colorMapIndex - 1;
         palOffset = startPalIndex * 16;
         numPalettes += startPalIndex;
@@ -564,7 +574,7 @@ static void ApplyColorMap(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex)
             {
                 for (i = 0; i < 16; i++)
                 {
-                    gPlttBufferFaded[palOffset] = sDroughtWeatherColors[colorMapIndex][DROUGHT_COLOR_INDEX(gPlttBufferUnfaded[palOffset])];
+                    gPlttBufferFaded[palOffset] = sSunnyWeatherColors[colorMapIndex][SUNNY_COLOR_INDEX(gPlttBufferUnfaded[palOffset])];
                     palOffset++;
                 }
             }
@@ -630,7 +640,7 @@ static void ApplyColorMapWithBlend(u8 startPalIndex, u8 numPalettes, s8 colorMap
     }
 }
 
-static void ApplyDroughtColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u16 blendColor)
+static void ApplySunnyColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u16 blendColor)
 {
     struct RGBColor color;
     u8 rBlend;
@@ -670,7 +680,7 @@ static void ApplyDroughtColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u16 b
                 b1 = color1.b;
 
                 offset = ((b1 & 0x1E) << 7) | ((g1 & 0x1E) << 3) | ((r1 & 0x1E) >> 1);
-                color2 = *(struct RGBColor *)&sDroughtWeatherColors[colorMapIndex][offset];
+                color2 = *(struct RGBColor *)&sSunnyWeatherColors[colorMapIndex][offset];
                 r2 = color2.r;
                 g2 = color2.g;
                 b2 = color2.b;
@@ -815,7 +825,7 @@ void FadeScreen(u8 mode, s8 delay)
     case WEATHER_RAIN:
     case WEATHER_SNOW:
     case WEATHER_FOG_HORIZONTAL:
-    case WEATHER_DROUGHT:
+    case WEATHER_SUNNY:
         useWeatherPal = TRUE;
         break;
     default:
@@ -895,91 +905,10 @@ void ApplyWeatherColorMapToPal(u8 paletteIndex)
     ApplyColorMap(paletteIndex, 1, gWeatherPtr->colorMapIndex);
 }
 
-// Unused
-static bool8 IsFirstFrameOfWeatherFadeIn(void)
-{
-    if (gWeatherPtr->palProcessingState == WEATHER_PAL_STATE_SCREEN_FADING_IN)
-        return gWeatherPtr->fadeInFirstFrame;
-    else
-        return FALSE;
-}
-
 void LoadCustomWeatherSpritePalette(const u16 *palette)
 {
     LoadPalette(palette, OBJ_PLTT_ID(gWeatherPtr->weatherPicSpritePalIndex), PLTT_SIZE_4BPP);
     UpdateSpritePaletteWithWeather(gWeatherPtr->weatherPicSpritePalIndex);
-}
-
-static void LoadDroughtWeatherPalette(u8 *palsIndex, u8 *palsOffset)
-{
-    *palsIndex = 0x20;
-    *palsOffset = 0x20;
-}
-
-void ResetDroughtWeatherPaletteLoading(void)
-{
-    gWeatherPtr->loadDroughtPalsIndex = 1;
-    gWeatherPtr->loadDroughtPalsOffset = 1;
-}
-
-bool8 LoadDroughtWeatherPalettes(void)
-{
-    if (gWeatherPtr->loadDroughtPalsIndex < 32)
-    {
-        LoadDroughtWeatherPalette(&gWeatherPtr->loadDroughtPalsIndex, &gWeatherPtr->loadDroughtPalsOffset);
-        if (gWeatherPtr->loadDroughtPalsIndex < 32)
-            return TRUE;
-    }
-    return FALSE;
-}
-
-static void SetDroughtColorMap(s8 colorMapIndex)
-{
-    ApplyWeatherColorMapIfIdle(-colorMapIndex - 1);
-}
-
-void DroughtStateInit(void)
-{
-    gWeatherPtr->droughtBrightnessStage = 0;
-    gWeatherPtr->droughtTimer = 0;
-    gWeatherPtr->droughtState = 0;
-    gWeatherPtr->droughtLastBrightnessStage = 0;
-}
-
-void DroughtStateRun(void)
-{
-    switch (gWeatherPtr->droughtState)
-    {
-    case 0:
-        if (++gWeatherPtr->droughtTimer > 5)
-        {
-            gWeatherPtr->droughtTimer = 0;
-            SetDroughtColorMap(gWeatherPtr->droughtBrightnessStage++);
-            if (gWeatherPtr->droughtBrightnessStage > 5)
-            {
-                gWeatherPtr->droughtLastBrightnessStage = gWeatherPtr->droughtBrightnessStage;
-                gWeatherPtr->droughtState = 1;
-                gWeatherPtr->droughtTimer = 60;
-            }
-        }
-        break;
-    case 1:
-        gWeatherPtr->droughtTimer = (gWeatherPtr->droughtTimer + 3) & 0x7F;
-        gWeatherPtr->droughtBrightnessStage = ((gSineTable[gWeatherPtr->droughtTimer] - 1) >> 6) + 2;
-        if (gWeatherPtr->droughtBrightnessStage != gWeatherPtr->droughtLastBrightnessStage)
-            SetDroughtColorMap(gWeatherPtr->droughtBrightnessStage);
-        gWeatherPtr->droughtLastBrightnessStage = gWeatherPtr->droughtBrightnessStage;
-        break;
-    case 2:
-        if (++gWeatherPtr->droughtTimer > 5)
-        {
-            gWeatherPtr->droughtTimer = 0;
-            SetDroughtColorMap(--gWeatherPtr->droughtBrightnessStage);
-            if (gWeatherPtr->droughtBrightnessStage == 3)
-                gWeatherPtr->droughtState = 0;
-        }
-        break;
-    }
 }
 
 void Weather_SetBlendCoeffs(u8 eva, u8 evb)

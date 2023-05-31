@@ -4269,7 +4269,7 @@ u8 AbilityBattleEffects(u8 caseID, u8 battler, u16 ability, u8 special, u16 move
                         effect++;
                     }
                     break;
-                case WEATHER_DROUGHT:
+                case WEATHER_SUNNY:
                     if (!(gBattleWeather & B_WEATHER_SUN))
                     {
                         gBattleWeather = (B_WEATHER_SUN_PERMANENT | B_WEATHER_SUN_TEMPORARY);

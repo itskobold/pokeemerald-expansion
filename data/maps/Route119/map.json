@@ -625,7 +625,7 @@
             "x": 29,
             "y": 13,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -633,7 +633,7 @@
             "x": 30,
             "y": 13,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -641,7 +641,7 @@
             "x": 31,
             "y": 13,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -649,7 +649,7 @@
             "x": 32,
             "y": 13,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -657,7 +657,7 @@
             "x": 15,
             "y": 133,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -665,7 +665,7 @@
             "x": 16,
             "y": 132,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -673,7 +673,7 @@
             "x": 17,
             "y": 131,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -681,7 +681,7 @@
             "x": 18,
             "y": 130,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -689,7 +689,7 @@
             "x": 19,
             "y": 131,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -697,7 +697,7 @@
             "x": 20,
             "y": 132,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -705,7 +705,7 @@
             "x": 21,
             "y": 133,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         },
         {
@@ -785,7 +785,7 @@
             "x": 34,
             "y": 13,
             "elevation": 3,
-            "weather": "WEATHER_ROUTE119_CYCLE",
+            "weather": "WEATHER_RAIN",
             "intensity": "WTHR_INTENSITY_NO_CHANGE"
         }
     ],

@@ -1009,7 +1009,7 @@ struct SaveBlock1
     /*0x9BC*/ u16 berryBlenderRecords[3];
     /*0x9C2*/ u8 weather;
     /*0x9C3*/ u8 weatherIntensity;
-    /*0x9C4*/ u8 weatherCycleStage;
+    /*0x9C4*/ u8 fillerWeatherStage;  // Previously weatherCycleStage
     /*0x9C5*/ u8 unused_9C2[2];
     /*0x9C8*/ u16 trainerRematchStepCounter;
     /*0x9CA*/ u8 trainerRematches[MAX_REMATCH_ENTRIES];

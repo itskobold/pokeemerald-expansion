@@ -1208,6 +1208,7 @@ static void DebugAction_Util_CheckSaveBlock(u8 taskId)
 static const u8 sWeatherNames[22][24] = {
     [WEATHER_NONE]               = _("NONE"),
     [WEATHER_SUNNY_CLOUDS]       = _("SUNNY CLOUDS"),
+    [WEATHER_SUNNY]              = _("SUNNY"),
     [WEATHER_NORMAL]             = _("NORMAL"),
     [WEATHER_RAIN]               = _("RAIN"),
     [WEATHER_SNOW]               = _("SNOW"),
@@ -1215,12 +1216,8 @@ static const u8 sWeatherNames[22][24] = {
     [WEATHER_VOLCANIC_ASH]       = _("VOLCANIC ASH"),
     [WEATHER_SANDSTORM]          = _("SANDSTORM"),
     [WEATHER_FOG_DIAGONAL]       = _("FOG DIAGONAL"),
-    [WEATHER_UNDERWATER]         = _("UNDERWATER"),
-    [WEATHER_DROUGHT]            = _("DROUGHT"),
     [WEATHER_UNDERWATER_BUBBLES] = _("UNDERWATER BUBBLES"),
-    [WEATHER_ABNORMAL]           = _("ABNORMAL"),
-    [WEATHER_ROUTE119_CYCLE]     = _("ROUTE119 CYCLE"),
-    [WEATHER_ROUTE123_CYCLE]     = _("ROUTE123 CYCLE"),
+    [WEATHER_ABNORMAL]           = _("ABNORMAL")
 };
 static const u8 sWeatherIntensityNames[5][10] = {
     [WTHR_INTENSITY_LOW] = _("LOW"),
@@ -1290,8 +1287,8 @@ static void DebugAction_Util_Weather_SelectId(u8 taskId)
         if (JOY_NEW(DPAD_UP))
         {
             gTasks[taskId].data[3] += sPowersOfTen[gTasks[taskId].data[4]];
-            if (gTasks[taskId].data[3] > WEATHER_ROUTE123_CYCLE)
-                gTasks[taskId].data[3] = WEATHER_ROUTE123_CYCLE;
+            if (gTasks[taskId].data[3] >= WEATHER_NO_CHANGE)
+                gTasks[taskId].data[3] = WEATHER_ABNORMAL;
         }
         if (JOY_NEW(DPAD_DOWN))
         {
@@ -1324,7 +1321,7 @@ static void DebugAction_Util_Weather_SelectId(u8 taskId)
 
     if (JOY_NEW(A_BUTTON))
     {
-        if (gTasks[taskId].data[3] <= WEATHER_ABNORMAL || gTasks[taskId].data[3] >= WEATHER_ROUTE119_CYCLE)
+        if (gTasks[taskId].data[3] < WEATHER_NO_CHANGE)
         {
             gTasks[taskId].data[5] = gTasks[taskId].data[3];
             SetWeather(gTasks[taskId].data[5]);
@@ -1345,7 +1342,7 @@ static void DebugAction_Util_WeatherIntensity_SelectId(u8 taskId)
         if (JOY_NEW(DPAD_UP))
         {
             gTasks[taskId].data[3] += sPowersOfTen[gTasks[taskId].data[4]];
-            if (gTasks[taskId].data[3] > WTHR_INTENSITY_EXTREME)
+            if (gTasks[taskId].data[3] >= WTHR_INTENSITY_NO_CHANGE)
                 gTasks[taskId].data[3] = WTHR_INTENSITY_EXTREME;
         }
         if (JOY_NEW(DPAD_DOWN))
@@ -1368,7 +1365,7 @@ static void DebugAction_Util_WeatherIntensity_SelectId(u8 taskId)
         StringCopy(gStringVar2, gText_DigitIndicator[gTasks[taskId].data[4]]);
         ConvertIntToDecimalStringN(gStringVar3, gTasks[taskId].data[3], STR_CONV_MODE_LEADING_ZEROS, 2);
 
-        if (gTasks[taskId].data[3] <= WTHR_INTENSITY_EXTREME)
+        if (gTasks[taskId].data[3] < WTHR_INTENSITY_NO_CHANGE)
             StringCopyPadded(gStringVar1, sWeatherIntensityNames[gTasks[taskId].data[3]], CHAR_SPACE, 30);
         else
             StringCopyPadded(gStringVar1, sText_WeatherNotDefined, CHAR_SPACE, 30);

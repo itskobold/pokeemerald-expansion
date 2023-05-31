@@ -65,6 +65,8 @@ struct Weather
     u8 weatherPicSpritePalIndex;
     u8 contrastColorMapSpritePalIndex;
     u8 nextAbnormalWeather;
+    u8 cloudSpritesCreated;
+    // Sunny
     // Rain
     u8 rainStep;
     u16 rainSpriteVisibleCounter;
@@ -75,7 +77,6 @@ struct Weather
     bool8 updatingRainSprites;
     u8 isDownpour;
     u16 rainSEPlaying;
-    u8 cloudSpritesCreated;
     u16 thunderTimer;             // general-purpose timer for state transitions
     u16 thunderSETimer;           // timer for thunder sound effect
     bool8 thunderAllowEnd;
@@ -130,14 +131,6 @@ struct Weather
     u8 blendUpdateCounter;
     u8 blendFrameCounter;
     u8 blendDelay;
-    // Drought
-    s16 droughtBrightnessStage;
-    s16 droughtLastBrightnessStage;
-    s16 droughtTimer;
-    s16 droughtState;
-    u8 droughtUnused[9];
-    s8 loadDroughtPalsIndex;
-    u8 loadDroughtPalsOffset;
 };
 
 // field_weather.c
@@ -153,6 +146,8 @@ void SetNextWeather(u8 weather);
 void SetCurrentAndNextWeather(u8 weather);
 void SetCurrentAndNextWeatherNoDelay(u8 weather);
 void SetNextWeatherIntensity(u8 intensity);
+void DoCoordEventWeather(u8 weather);
+void DoCoordEventWeatherIntensity(u8 intensity);
 void SetCurrentAndNextWeatherIntensity(u8 intensity);
 void ApplyWeatherColorMapIfIdle(s8 colorMapIndex);
 void ApplyWeatherColorMapIfIdle_Gradual(u8 colorMapIndex, u8 targetColorMapIndex, u8 colorMapStepDelay);
@@ -161,10 +156,6 @@ bool8 IsWeatherNotFadingIn(void);
 void UpdateSpritePaletteWithWeather(u8 spritePaletteIndex);
 void ApplyWeatherColorMapToPal(u8 paletteIndex);
 void LoadCustomWeatherSpritePalette(const u16 *palette);
-void ResetDroughtWeatherPaletteLoading(void);
-bool8 LoadDroughtWeatherPalettes(void);
-void DroughtStateInit(void);
-void DroughtStateRun(void);
 void Weather_SetBlendCoeffs(u8 eva, u8 evb);
 void Weather_SetTargetBlendCoeffs(u8 eva, u8 evb, int delay);
 bool8 Weather_UpdateBlend(void);
@@ -184,6 +175,11 @@ void Clouds_InitVars(void);
 void Clouds_Main(void);
 void Clouds_InitAll(void);
 bool8 Clouds_Finish(void);
+void Sunny_InitVars(void);
+void Sunny_InitAll(void);
+void Sunny_Intensity(void);
+void Sunny_Main(void);
+bool8 Sunny_Finish(void);
 void Normal_InitVars(void);
 void Normal_Main(void);
 void Normal_InitAll(void);
@@ -214,10 +210,6 @@ void FogDiagonal_InitVars(void);
 void FogDiagonal_Main(void);
 void FogDiagonal_InitAll(void);
 bool8 FogDiagonal_Finish(void);
-void Drought_InitVars(void);
-void Drought_Main(void);
-void Drought_InitAll(void);
-bool8 Drought_Finish(void);
 void Bubbles_InitVars(void);
 void Bubbles_Main(void);
 void Bubbles_InitAll(void);
@@ -232,7 +224,6 @@ void SetSavedWeatherFromCurrMapHeader(void);
 void SetWeather(u8 weather);
 void SetWeatherIntensity(u8 intensity);
 void DoCurrentWeather(void);
-void UpdateWeatherPerDay(u16 increment);
 void ResumePausedWeather(void);
 
 #endif // GUARD_WEATHER_H

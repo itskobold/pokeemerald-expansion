@@ -1,7 +1,6 @@
 #include "global.h"
 #include "battle_setup.h"
 #include "bike.h"
-#include "coord_event_weather.h"
 #include "daycare.h"
 #include "debug.h"
 #include "faraway_island.h"
@@ -14,6 +13,7 @@
 #include "field_poison.h"
 #include "field_screen_effect.h"
 #include "field_specials.h"
+#include "field_weather.h"
 #include "fldeff_misc.h"
 #include "item_menu.h"
 #include "link.h"
@@ -907,12 +907,8 @@ static const u8 *TryRunCoordEventScript(const struct CoordEvent *coordEvent)
         // Weather trigger
         if (coordEvent->script == NULL)
         {
-            u8 weather = coordEvent->trigger;
-            u8 weatherIntensity = coordEvent->index;
-            if (weather != WEATHER_NO_CHANGE)
-                DoCoordEventWeather(weather);
-            if (weatherIntensity != WTHR_INTENSITY_NO_CHANGE)
-                DoCoordEventWeatherIntensity(weatherIntensity);
+            DoCoordEventWeather(coordEvent->trigger);
+            DoCoordEventWeatherIntensity(coordEvent->index);
             return NULL;
         }
         if (coordEvent->trigger == TRIGGER_RUN_IMMEDIATELY)

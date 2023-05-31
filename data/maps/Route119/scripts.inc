@@ -21,7 +21,6 @@ Route119_OnTransition:
 	call Common_EventScript_SetupRivalGfxId
 	call Common_EventScript_SetupRivalOnBikeGfxId
 	call_if_eq VAR_WEATHER_INSTITUTE_STATE, 1, Route119_EventScript_MoveInstituteWorkersDownstairs
-	special SetRoute119Weather
 	end
 
 Route119_EventScript_MoveInstituteWorkersDownstairs::

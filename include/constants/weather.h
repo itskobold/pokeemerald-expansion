@@ -3,26 +3,23 @@
 
 #define WEATHER_NONE                    0
 #define WEATHER_SUNNY_CLOUDS            1
-#define WEATHER_NORMAL                  2
-#define WEATHER_RAIN                    3
-#define WEATHER_SNOW                    4   // Unused
-#define WEATHER_FOG_HORIZONTAL          5
-#define WEATHER_VOLCANIC_ASH            6
-#define WEATHER_SANDSTORM               7
-#define WEATHER_FOG_DIAGONAL            8   // Unused
-#define WEATHER_UNDERWATER              9   // Unused
-#define WEATHER_DROUGHT                 10
-#define WEATHER_UNDERWATER_BUBBLES      11
-#define WEATHER_ABNORMAL                12  // The alternating weather during Groudon/Kyogre conflict
-#define WEATHER_ROUTE119_CYCLE          20
-#define WEATHER_ROUTE123_CYCLE          21
-#define WEATHER_NO_CHANGE				0xFF  // For coord weather events
+#define WEATHER_SUNNY                   2
+#define WEATHER_NORMAL                  3
+#define WEATHER_RAIN                    4
+#define WEATHER_SNOW                    5   // Unused
+#define WEATHER_FOG_HORIZONTAL          6
+#define WEATHER_VOLCANIC_ASH            7
+#define WEATHER_SANDSTORM               8
+#define WEATHER_FOG_DIAGONAL            9   // Unused
+#define WEATHER_UNDERWATER_BUBBLES      10
+#define WEATHER_ABNORMAL                11  // The alternating weather during Groudon/Kyogre conflict
+#define WEATHER_NO_CHANGE				12  // For coord weather events
 
 #define WTHR_INTENSITY_LOW 0
 #define WTHR_INTENSITY_MILD 1
 #define WTHR_INTENSITY_STRONG 2
 #define WTHR_INTENSITY_EXTREME 3
-#define WTHR_INTENSITY_NO_CHANGE 0xFF  // For coord weather events
+#define WTHR_INTENSITY_NO_CHANGE 4  // For coord weather events
 
 // These are the "abnormal weather events" that are used
 // to find Kyogre and Groudon.

@@ -327,15 +327,12 @@ gSpecials::
 	def_special SetTrainerFacingDirection
 	def_special DoSealedChamberShakingEffect_Short
 	def_special FoundBlackGlasses
-	def_special StartDroughtWeatherBlend
 	def_special DoDiveWarp
 	def_special DoFallWarp
 	def_special ShowContestEntryMonPic
 	def_special HideContestEntryMonPic
 	def_special SetEReaderTrainerGfxId
 	def_special BattleSetup_StartLatiBattle
-	def_special SetRoute119Weather
-	def_special SetRoute123Weather
 	def_special GetContestMultiplayerId
 	def_special ScriptGetPartyMonSpecies
 	def_special IsSelectedMonEgg
