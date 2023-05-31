@@ -20,8 +20,8 @@ MtPyre_Exterior_EventScript_FogTrigger::
 	doweather
 	end
 
-MtPyre_Exterior_EventScript_SunTrigger::
-	setweather WEATHER_SUNNY
+MtPyre_Exterior_EventScript_NormalWeatherTrigger::
+	setweather WEATHER_NORMAL
 	doweather
 	end
 

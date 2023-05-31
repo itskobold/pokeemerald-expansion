@@ -3,7 +3,7 @@
 
 #define WEATHER_NONE                    0
 #define WEATHER_SUNNY_CLOUDS            1
-#define WEATHER_SUNNY                   2
+#define WEATHER_NORMAL                  2
 #define WEATHER_RAIN                    3
 #define WEATHER_SNOW                    4   // Unused
 #define WEATHER_FOG_HORIZONTAL          5

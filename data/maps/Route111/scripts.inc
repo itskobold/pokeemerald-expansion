@@ -251,8 +251,8 @@ Route111_Movement_PushRightFromRoute:
 	walk_right
 	step_end
 
-Route111_EventScript_SunTrigger::
-	setweather WEATHER_SUNNY
+Route111_EventScript_NormalWeatherTrigger::
+	setweather WEATHER_NORMAL
 	fadenewbgm MUS_ROUTE110
 	doweather
 	setvar VAR_TEMP_3, 0

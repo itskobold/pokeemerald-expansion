@@ -180,7 +180,7 @@ AbnormalWeather_EventScript_EndEventAndCleanup_1::
 AbnormalWeather_EventScript_EndEventAndCleanup_2::
 	closemessage
 	fadescreenswapbuffers FADE_TO_BLACK
-	setweather WEATHER_SUNNY
+	setweather WEATHER_NORMAL
 	doweather
 	call AbnormalWeather_EventScript_CleanupMapTiles
 	special DrawWholeMapView

@@ -50,7 +50,9 @@ static void ApplyColorMap(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex);
 static void ApplyColorMapWithBlend(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex, u8 blendCoeff, u16 blendColor);
 static void ApplyDroughtColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u16 blendColor);
 static void ApplyFogBlend(u8 blendCoeff, u16 blendColor);
-static bool8 FadeInScreen_RainShowShade(void);
+static void DoFadeInScreen_NoEffect(void);
+static bool8 FadeInScreen_Shade(void);
+static void DoFadeInScreen_Shade(void);
 static bool8 FadeInScreen_Drought(void);
 static bool8 FadeInScreen_FogHorizontal(void);
 static void FadeInScreenWithWeather(void);
@@ -85,18 +87,18 @@ struct Weather *const gWeatherPtr = &gWeather;
 
 static const struct WeatherCallbacks sWeatherFuncs[] =
 {
-    [WEATHER_NONE]               = {None_Init,              None_Main,      None_Main,          None_Init,             None_Finish},
-    [WEATHER_SUNNY_CLOUDS]       = {Clouds_InitVars,        None_Main,      Clouds_Main,        Clouds_InitAll,        Clouds_Finish},
-    [WEATHER_SUNNY]              = {Sunny_InitVars,         None_Main,      Sunny_Main,         Sunny_InitAll,         Sunny_Finish},
-    [WEATHER_RAIN]               = {Rain_InitVars,          Rain_Intensity, Rain_Main,          Rain_InitAll,          Rain_Finish},
-    [WEATHER_SNOW]               = {Snow_InitVars,          None_Main,      Snow_Main,          Snow_InitAll,          Snow_Finish},
-    [WEATHER_FOG_HORIZONTAL]     = {FogHorizontal_InitVars, None_Main,      FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
-    [WEATHER_VOLCANIC_ASH]       = {Ash_InitVars,           None_Main,      Ash_Main,           Ash_InitAll,           Ash_Finish},
-    [WEATHER_SANDSTORM]          = {Sandstorm_InitVars,     None_Main,      Sandstorm_Main,     Sandstorm_InitAll,     Sandstorm_Finish},
-    [WEATHER_FOG_DIAGONAL]       = {FogDiagonal_InitVars,   None_Main,      FogDiagonal_Main,   FogDiagonal_InitAll,   FogDiagonal_Finish},
-    [WEATHER_UNDERWATER]         = {FogHorizontal_InitVars, None_Main,      FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
-    [WEATHER_DROUGHT]            = {Drought_InitVars,       None_Main,      Drought_Main,       Drought_InitAll,       Drought_Finish},
-    [WEATHER_UNDERWATER_BUBBLES] = {Bubbles_InitVars,       None_Main,      Bubbles_Main,       Bubbles_InitAll,       Bubbles_Finish},
+    [WEATHER_NONE]               = {None_Init,              None_Main,        None_Main,          None_Init,             None_Finish},
+    [WEATHER_SUNNY_CLOUDS]       = {Clouds_InitVars,        None_Main,        Clouds_Main,        Clouds_InitAll,        Clouds_Finish},
+    [WEATHER_NORMAL]             = {Normal_InitVars,        Normal_Intensity, Normal_Main,        Normal_InitAll,        Normal_Finish},
+    [WEATHER_RAIN]               = {Rain_InitVars,          Rain_Intensity,   Rain_Main,          Rain_InitAll,          Rain_Finish},
+    [WEATHER_SNOW]               = {Snow_InitVars,          None_Main,        Snow_Main,          Snow_InitAll,          Snow_Finish},
+    [WEATHER_FOG_HORIZONTAL]     = {FogHorizontal_InitVars, None_Main,        FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
+    [WEATHER_VOLCANIC_ASH]       = {Ash_InitVars,           None_Main,        Ash_Main,           Ash_InitAll,           Ash_Finish},
+    [WEATHER_SANDSTORM]          = {Sandstorm_InitVars,     None_Main,        Sandstorm_Main,     Sandstorm_InitAll,     Sandstorm_Finish},
+    [WEATHER_FOG_DIAGONAL]       = {FogDiagonal_InitVars,   None_Main,        FogDiagonal_Main,   FogDiagonal_InitAll,   FogDiagonal_Finish},
+    [WEATHER_UNDERWATER]         = {FogHorizontal_InitVars, None_Main,        FogHorizontal_Main, FogHorizontal_InitAll, FogHorizontal_Finish},
+    [WEATHER_DROUGHT]            = {Drought_InitVars,       None_Main,        Drought_Main,       Drought_InitAll,       Drought_Finish},
+    [WEATHER_UNDERWATER_BUBBLES] = {Bubbles_InitVars,       None_Main,        Bubbles_Main,       Bubbles_InitAll,       Bubbles_Finish},
 };
 
 void (*const gWeatherPalStateFuncs[])(void) =
@@ -399,13 +401,15 @@ static void FadeInScreenWithWeather(void)
 
     switch (gWeatherPtr->currWeather)
     {
+    case WEATHER_NORMAL:
+        if (gWeatherPtr->currIntensity == WTHR_INTENSITY_EXTREME)
+            DoFadeInScreen_Shade();
+        else
+            DoFadeInScreen_NoEffect();
+        break;
     case WEATHER_RAIN:
     case WEATHER_SNOW:
-        if (FadeInScreen_RainShowShade() == FALSE)
-        {
-            gWeatherPtr->colorMapIndex = 3;
-            gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
-        }
+        DoFadeInScreen_Shade();
         break;
     case WEATHER_DROUGHT:
         if (FadeInScreen_Drought() == FALSE)
@@ -426,16 +430,21 @@ static void FadeInScreenWithWeather(void)
     case WEATHER_FOG_DIAGONAL:
     case WEATHER_UNDERWATER:
     default:
-        if (!gPaletteFade.active)
-        {
-            gWeatherPtr->colorMapIndex = gWeatherPtr->targetColorMapIndex;
-            gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
-        }
+        DoFadeInScreen_NoEffect();
         break;
     }
 }
 
-static bool8 FadeInScreen_RainShowShade(void)
+static void DoFadeInScreen_NoEffect(void)
+{
+    if (!gPaletteFade.active)
+    {
+        gWeatherPtr->colorMapIndex = 0; // gWeatherPtr->targetColorMapIndex;
+        gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
+    }
+}
+
+static bool8 FadeInScreen_Shade(void)
 {
     if (gWeatherPtr->fadeScreenCounter == 16)
         return FALSE;
@@ -449,6 +458,15 @@ static bool8 FadeInScreen_RainShowShade(void)
 
     ApplyColorMapWithBlend(0, 32, 3, 16 - gWeatherPtr->fadeScreenCounter, gWeatherPtr->fadeDestColor);
     return TRUE;
+}
+
+static void DoFadeInScreen_Shade(void)
+{
+    if (FadeInScreen_Shade() == FALSE)
+    {
+        gWeatherPtr->colorMapIndex = 3;
+        gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
+    }
 }
 
 static bool8 FadeInScreen_Drought(void)
@@ -788,6 +806,12 @@ void FadeScreen(u8 mode, s8 delay)
 
     switch (gWeatherPtr->currWeather)
     {
+    case WEATHER_NORMAL:
+        if (gWeatherPtr->currIntensity == WTHR_INTENSITY_EXTREME)
+            useWeatherPal = TRUE;
+        else
+            useWeatherPal = FALSE;
+        break;
     case WEATHER_RAIN:
     case WEATHER_SNOW:
     case WEATHER_FOG_HORIZONTAL:

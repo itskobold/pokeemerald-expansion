@@ -145,12 +145,12 @@
   ],
   "coord_events": [
     {
-      "type": "weather",
-      "x": 13,
-      "y": 15,
-      "elevation": 3,
-      "weather": "WEATHER_SUNNY",
-      "intensity": "WTHR_INTENSITY_NO_CHANGE"
+        "type": "weather",
+        "x": 13,
+        "y": 15,
+        "elevation": 3,
+        "weather": "WEATHER_NORMAL",
+        "intensity": "WTHR_INTENSITY_NO_CHANGE"
     },
     {
       "type": "weather",
@@ -161,28 +161,28 @@
       "intensity": "WTHR_INTENSITY_NO_CHANGE"
     },
     {
-      "type": "weather",
-      "x": 14,
-      "y": 15,
-      "elevation": 3,
-      "weather": "WEATHER_SUNNY",
-      "intensity": "WTHR_INTENSITY_NO_CHANGE"
+        "type": "weather",
+        "x": 14,
+        "y": 15,
+        "elevation": 3,
+        "weather": "WEATHER_NORMAL",
+        "intensity": "WTHR_INTENSITY_NO_CHANGE"
     },
     {
-      "type": "weather",
-      "x": 18,
-      "y": 17,
-      "elevation": 3,
-      "weather": "WEATHER_SUNNY",
-      "intensity": "WTHR_INTENSITY_NO_CHANGE"
+        "type": "weather",
+        "x": 18,
+        "y": 17,
+        "elevation": 3,
+        "weather": "WEATHER_NORMAL",
+        "intensity": "WTHR_INTENSITY_NO_CHANGE"
     },
     {
-      "type": "weather",
-      "x": 22,
-      "y": 19,
-      "elevation": 3,
-      "weather": "WEATHER_SUNNY",
-      "intensity": "WTHR_INTENSITY_NO_CHANGE"
+        "type": "weather",
+        "x": 22,
+        "y": 19,
+        "elevation": 3,
+        "weather": "WEATHER_NORMAL",
+        "intensity": "WTHR_INTENSITY_NO_CHANGE"
     },
     {
       "type": "trigger",

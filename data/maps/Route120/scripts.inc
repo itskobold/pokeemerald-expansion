@@ -63,7 +63,7 @@ Route120_OnTransition:
 
 Route120_EventScript_SetWeather::
 	getplayerxy VAR_TEMP_0, VAR_TEMP_1
-	goto_if_le VAR_TEMP_1, 14, Route120_EventScript_SetSunnyWeather
+	goto_if_le VAR_TEMP_1, 14, Route120_EventScript_SetNormalWeather
 	goto_if_le VAR_TEMP_1, 60, Route120_EventScript_TrySetRainyWeather
 	goto_if_ge VAR_TEMP_1, 61, Route120_EventScript_SetCloudyWeather
 	return
@@ -72,13 +72,13 @@ Route120_EventScript_SetCloudyWeather::
 	setweather WEATHER_SUNNY_CLOUDS
 	return
 
-Route120_EventScript_SetSunnyWeather::
-	setweather WEATHER_SUNNY
+Route120_EventScript_SetNormalWeather::
+	setweather WEATHER_NORMAL
 	return
 
 Route120_EventScript_TrySetRainyWeather::
 	goto_if_le VAR_TEMP_0, 7, Route120_EventScript_SetRainyWeather
-	goto_if_le VAR_TEMP_0, 19, Route120_EventScript_SetSunnyWeather
+	goto_if_le VAR_TEMP_0, 19, Route120_EventScript_SetNormalWeather
 	goto Route120_EventScript_SetRainyWeather
 	end
 

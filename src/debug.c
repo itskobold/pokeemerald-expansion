@@ -1208,7 +1208,7 @@ static void DebugAction_Util_CheckSaveBlock(u8 taskId)
 static const u8 sWeatherNames[22][24] = {
     [WEATHER_NONE]               = _("NONE"),
     [WEATHER_SUNNY_CLOUDS]       = _("SUNNY CLOUDS"),
-    [WEATHER_SUNNY]              = _("SUNNY"),
+    [WEATHER_NORMAL]             = _("NORMAL"),
     [WEATHER_RAIN]               = _("RAIN"),
     [WEATHER_SNOW]               = _("SNOW"),
     [WEATHER_FOG_HORIZONTAL]     = _("FOG HORIZONTAL"),

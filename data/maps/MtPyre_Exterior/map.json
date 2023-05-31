@@ -90,16 +90,16 @@
       "elevation": 3,
       "var": "TRIGGER_RUN_IMMEDIATELY",
       "var_value": "0",
-      "script": "MtPyre_Exterior_EventScript_SunTrigger"
+      "script": "MtPyre_Exterior_EventScript_NormalWeatherTrigger"
     },
     {
-      "type": "trigger",
-      "x": 23,
-      "y": 28,
-      "elevation": 3,
-      "var": "TRIGGER_RUN_IMMEDIATELY",
-      "var_value": "0",
-      "script": "MtPyre_Exterior_EventScript_SunTrigger"
+        "type": "trigger",
+        "x": 23,
+        "y": 28,
+        "elevation": 3,
+        "var": "TRIGGER_RUN_IMMEDIATELY",
+        "var_value": "0",
+        "script": "MtPyre_Exterior_EventScript_NormalWeatherTrigger"
     },
     {
       "type": "trigger",

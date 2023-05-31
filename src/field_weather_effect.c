@@ -147,31 +147,11 @@ bool8 Clouds_Finish(void)
     return FALSE;
 }
 
-void Sunny_InitVars(void)
-{
-    gWeatherPtr->targetColorMapIndex = 0;
-    gWeatherPtr->colorMapStepDelay = 20;
-}
-
-void Sunny_InitAll(void)
-{
-    Sunny_InitVars();
-}
-
-void Sunny_Main(void)
-{
-}
-
-bool8 Sunny_Finish(void)
-{
-    return FALSE;
-}
-
 static void CreateCloudSprites(void)
 {
     u16 i;
     u8 spriteId;
-    struct Sprite *sprite;
+    struct Sprite* sprite;
 
     if (gWeatherPtr->cloudSpritesCreated == TRUE)
         return;
@@ -214,12 +194,59 @@ static void DestroyCloudSprites(void)
     gWeatherPtr->cloudSpritesCreated = FALSE;
 }
 
-static void UpdateCloudSprite(struct Sprite *sprite)
+static void UpdateCloudSprite(struct Sprite* sprite)
 {
     // Move 1 pixel left every 2 frames.
     sprite->data[0] = (sprite->data[0] + 1) & 1;
     if (sprite->data[0])
         sprite->x--;
+}
+
+//------------------------------------------------------------------------------
+// WEATHER_NORMAL
+//------------------------------------------------------------------------------
+
+static void SetNormalWeatherColorMap(void);
+
+void Normal_InitVars(void)
+{
+    SetNormalWeatherColorMap();
+    gWeatherPtr->weatherGfxLoaded = TRUE;
+}
+
+void Normal_InitAll(void)
+{
+    Normal_InitVars();
+}
+
+void Normal_Intensity(void)
+{
+    if (gWeatherPtr->palProcessingState != WEATHER_PAL_STATE_SCREEN_FADING_OUT)
+    {
+        SetNormalWeatherColorMap();
+        gWeatherPtr->colorMapStepCounter = 0;
+        gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_CHANGING_WEATHER;
+    }
+}
+
+void Normal_Main(void)
+{
+}
+
+bool8 Normal_Finish(void)
+{
+    gWeatherPtr->weatherGfxLoaded = FALSE;
+    return FALSE;
+}
+
+static void SetNormalWeatherColorMap(void)
+{
+    // Extreme intensity is overcast
+    if (gWeatherPtr->nextIntensity == WTHR_INTENSITY_EXTREME)
+        gWeatherPtr->targetColorMapIndex = 3;
+    else
+        gWeatherPtr->targetColorMapIndex = 0;
+    gWeatherPtr->colorMapStepDelay = 20;
 }
 
 //------------------------------------------------------------------------------
@@ -2512,17 +2539,17 @@ void ResumePausedWeather(void)
 
 static const u8 sWeatherCycleRoute119[WEATHER_CYCLE_LENGTH] =
 {
-    WEATHER_SUNNY,
+    WEATHER_NORMAL,
     WEATHER_RAIN,
     WEATHER_RAIN,
     WEATHER_RAIN,
 };
 static const u8 sWeatherCycleRoute123[WEATHER_CYCLE_LENGTH] =
 {
-    WEATHER_SUNNY,
-    WEATHER_SUNNY,
+    WEATHER_NORMAL,
+    WEATHER_NORMAL,
     WEATHER_RAIN,
-    WEATHER_SUNNY,
+    WEATHER_NORMAL,
 };
 
 // TODO: after removing cycling weather this can be a simple if (weather > LAST_WEATHER_ID) else WEATHER_NONE statement
@@ -2532,7 +2559,7 @@ static u8 TranslateWeatherNum(u8 weather)
     {
     case WEATHER_NONE:               return WEATHER_NONE;
     case WEATHER_SUNNY_CLOUDS:       return WEATHER_SUNNY_CLOUDS;
-    case WEATHER_SUNNY:              return WEATHER_SUNNY;
+    case WEATHER_NORMAL:             return WEATHER_NORMAL;
     case WEATHER_RAIN:               return WEATHER_RAIN;
     case WEATHER_SNOW:               return WEATHER_SNOW;
     case WEATHER_FOG_HORIZONTAL:     return WEATHER_FOG_HORIZONTAL;
